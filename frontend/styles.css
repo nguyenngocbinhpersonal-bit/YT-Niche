@@ -1,7 +1,7 @@
 /* niche-finder dashboard.
-   Палитра — валидированный набор из dataviz-скилла: одна серия (blue) для
-   магнитуды, статусные цвета только для дельт и всегда со знаком/подписью,
-   так что смысл никогда не держится на одном лишь цвете. */
+   The palette is a validated set from the dataviz skill: one series (blue) for
+   magnitude, status colours only for deltas and always with a sign/label,
+   so the meaning never rests on colour alone. */
 
 :root {
   color-scheme: dark;
@@ -17,7 +17,7 @@
   --border:       rgba(255,255,255,.10);
   --series-1:     #3987e5;
   --series-soft:  rgba(57,135,229,.18);
-  /* план 20: ещё четыре серии для сравнения видео */
+  /* plan 20: four more series for comparing videos */
   --series-2:     #f0913f;
   --series-3:     #45b97a;
   --series-4:     #a682e6;
@@ -67,7 +67,7 @@ body {
 
 a { color: inherit; text-decoration: none; }
 
-/* ------------------------------------------------------------- каркас */
+/* ------------------------------------------------------------- layout */
 
 .layout { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
 
@@ -91,8 +91,8 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--border); border-radius: 999px; padding: 2px 6px;
 }
 
-/* меню прокручивается само, чтобы подвал с квотой оставался виден в
-   невысоком окне (панель sticky на 100vh и целиком не прокручивается) */
+/* the menu scrolls on its own so the footer with the quota stays visible in a
+   short window (the panel is sticky at 100vh and does not scroll as a whole) */
 .nav { display: flex; flex-direction: column; gap: 2px;
        flex: 1 1 auto; min-height: 0; overflow-y: auto;
        scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
@@ -145,9 +145,9 @@ select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible
 .btn:disabled { opacity: .5; cursor: default; filter: none; }
 .btn-sm { padding: 4px 9px; font-size: 12px; }
 
-/* minmax(0,1fr) + min-width:0 обязательны: у грид-элементов min-width по
-   умолчанию auto, поэтому min-content внутреннего горизонтального скроллера
-   (лента категорий) распирал всю страницу до ~1750px. */
+/* minmax(0,1fr) + min-width:0 are required: grid items have min-width
+   auto by default, so the min-content of the inner horizontal scroller
+   (the category strip) stretched the whole page to ~1750px. */
 .view {
   padding: 20px 24px 60px;
   display: grid;
@@ -158,7 +158,7 @@ select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible
 .card, .scroller, .table-wrap, .barlist, .rows, .cards, .tiles { min-width: 0; }
 .grid-2 > * { min-width: 0; }
 
-/* -------------------------------------------------------------- секции */
+/* -------------------------------------------------------------- sections */
 
 .section-head { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 12px; }
 .section-title { font-size: 17px; font-weight: 650; letter-spacing: -.01em; }
@@ -171,7 +171,7 @@ select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible
 }
 .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; }
 
-/* ------------------------------------------------------------ статтайлы */
+/* ------------------------------------------------------------ stat tiles */
 
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
 .tile { background: var(--surface); border: 1px solid var(--border);
@@ -181,7 +181,7 @@ select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible
 .tile-value { font-size: 25px; font-weight: 620; letter-spacing: -.02em; margin-top: 4px; }
 .tile-note { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-/* ---------------------------------------------------------- список-бары */
+/* ---------------------------------------------------------- list bars */
 
 .barlist { display: grid; gap: 9px; }
 .barrow { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: baseline; }
@@ -198,7 +198,7 @@ select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible
 .comment-meta { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 .comment-text { font-size: 13px; color: var(--ink); white-space: pre-wrap; }
 
-/* --------------------------------------------------------- строки-каналы */
+/* --------------------------------------------------------- channel rows */
 
 .rows { display: grid; gap: 8px; }
 .row {
@@ -226,7 +226,7 @@ select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible
 .strength i { width: 15px; height: 3px; border-radius: 2px; background: var(--surface-hi); }
 .strength i.on { background: var(--series-1); }
 
-/* ------------------------------------------------------------ видеокарты */
+/* ------------------------------------------------------------ video cards */
 
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 16px; }
 .vcard { display: grid; gap: 8px; min-width: 0; }
@@ -251,13 +251,13 @@ select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible
 .vcard-meta { font-size: 12px; color: var(--muted); }
 .vcard-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 
-/* Обзор: блок «За сутки» (дайджест) */
+/* Overview: the "Last 24 hours" block (digest) */
 .digest-list { margin: 6px 0 12px; padding-left: 18px; font-size: 13px; line-height: 1.5; }
 .brief-quote { margin: 8px 0 0; padding: 8px 12px; border-left: 3px solid var(--border); color: var(--ink-2); font-size: 13px; line-height: 1.5; }
 .tile-unit { font-size: 13px; color: var(--muted); font-weight: 400; }
 .digest-list li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Перепаковки: «было / стало» */
+/* Repackaging: "before / after" */
 .pk-cards { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .pk-card { display: grid; gap: 8px; min-width: 0; margin: 0; align-content: start; }
 .pk-card .vcard-chips { align-items: center; }
@@ -283,7 +283,7 @@ select:focus-visible, input:focus-visible, button:focus-visible, a:focus-visible
 .chip-bad  { color: var(--critical); }
 .chip-warn { color: var(--warning); }
 
-/* --------------------------------------------------------------- таблица */
+/* --------------------------------------------------------------- table */
 
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -295,7 +295,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 tbody tr:hover { background: var(--surface-2); }
 td.wrap { white-space: normal; max-width: 380px; }
 
-/* ------------------------------------------------------------- горизонт */
+/* ------------------------------------------------------------- horizontal */
 
 .scroller { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; }
 .scroller::-webkit-scrollbar { height: 8px; }
@@ -308,7 +308,7 @@ td.wrap { white-space: normal; max-width: 380px; }
 .cat-count { font-size: 12px; color: var(--muted); margin-top: 3px; }
 .cat-delta { font-size: 12px; margin-top: 6px; font-variant-numeric: tabular-nums; }
 
-/* ------------------------------------------------------------- служебное */
+/* ------------------------------------------------------------- utilities */
 
 .notice {
   display: flex; gap: 10px; align-items: flex-start;
@@ -364,13 +364,13 @@ td.wrap { white-space: normal; max-width: 380px; }
                stroke-linejoin: round; stroke-linecap: round; }
 .chart .area { fill: var(--series-soft); }
 .chart .dot  { fill: var(--series-1); stroke: var(--surface); stroke-width: 2; }
-/* отметка даты на оси X (план 18): пунктир, наводится как точка */
+/* date mark on the X axis (plan 18): dashed, hovered like a point */
 .chart .mark { stroke: var(--muted); stroke-width: 2; stroke-dasharray: 4 4; pointer-events: stroke; }
-/* план 20: траектории — своя линия у каждого видео, ожидаемая пунктиром */
+/* plan 20: trajectories — each video has its own line, the expected one is dashed */
 .chart .tline { fill: none; stroke-width: 2; stroke-linejoin: round; }
 .chart .tline.expected { stroke-dasharray: 5 4; stroke-width: 1.5; opacity: .8; }
 .chart .tdot { stroke: var(--surface); stroke-width: 1.5; }
-/* план 23: «?» с формулой оценки; .est -- число, посчитанное niche-finder, а не YouTube */
+/* plan 23: a "?" with the score formula; .est -- a number computed by niche-finder, not YouTube */
 .qmark { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px;
   border-radius: 50%; border: 1px solid var(--axis); color: var(--muted); font-size: 10px; font-weight: 600;
   cursor: help; vertical-align: middle; line-height: 1; }
@@ -381,7 +381,7 @@ td.wrap { white-space: normal; max-width: 380px; }
 .chart text  { fill: var(--muted); font-size: 11px; }
 .chart .crosshair { stroke: var(--axis); stroke-width: 1; stroke-dasharray: 3 3; }
 
-/* ------------------------------------------------------------- справка */
+/* ------------------------------------------------------------- help */
 
 .prose { font-size: 13px; line-height: 1.65; color: var(--ink-2); }
 .prose h3 { font-size: 15px; font-weight: 650; color: var(--ink); margin: 0 0 8px; }

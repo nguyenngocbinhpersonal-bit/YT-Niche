@@ -124,45 +124,45 @@ def _event_line(e) -> str:
     if e["kind"] == "acceleration":
         return f"• ×{p.get('acceleration')} · {_esc(_cut(p.get('title') or p.get('videoId')))}"
     if e["kind"] == "channel_gone":
-        return f"• канал {_esc(_cut(p.get('title') or p.get('channelId')))}"
+        return f"• channel {_esc(_cut(p.get('title') or p.get('channelId')))}"
     if e["kind"] == "topic_match":
-        return f"• «{_esc(_cut(p.get('topic'), 40))}»: {_esc(_cut(p.get('title') or p.get('videoId')))}"
+        return f"• “{_esc(_cut(p.get('topic'), 40))}”: {_esc(_cut(p.get('title') or p.get('videoId')))}"
     if e["kind"] == "milestone":
-        return f"• {_esc(_cut(p.get('title') or p.get('channelId')))} — {_compact(p.get('milestone'))} подп."
+        return f"• {_esc(_cut(p.get('title') or p.get('channelId')))} — {_compact(p.get('milestone'))} subs"
     if e["kind"] == "draft_due":
         from application import content_calendar as CAL
         return f"• {_esc(_cut(p.get('title') or str(p.get('draftId'))))} — {_esc(CAL.event_text(p))}"
     if e["kind"] == "video_gone":
-        return f"• видео {_esc(_cut(p.get('title') or p.get('videoId')))}"
+        return f"• video {_esc(_cut(p.get('title') or p.get('videoId')))}"
     return f"• {_esc(e['kind'])}"
 
 
 def _channel_line(c) -> str:
     return (f"• {_esc(_cut(c.get('channelTitle') or c.get('channelId')))} — "
-            f"×{c.get('multiplier')}, {_compact(c.get('subscribers'))} подп.")
+            f"×{c.get('multiplier')}, {_compact(c.get('subscribers'))} subs")
 
 
 def _swap_line(s) -> str:
     if s.get("field") == "title":
-        return (f"• заголовок: «{_esc(_cut(s.get('old'), 50))}» → "
-                f"«{_esc(_cut(s.get('new'), 50))}»")
-    return f"• обложка: {_esc(_cut(s.get('title') or s.get('videoId')))}"
+        return (f"• title: “{_esc(_cut(s.get('old'), 50))}” → "
+                f"“{_esc(_cut(s.get('new'), 50))}”")
+    return f"• thumbnail: {_esc(_cut(s.get('title') or s.get('videoId')))}"
 
 
 SECTIONS = (
-    ("outliers", "\U0001F680 <b>Новые outlier-видео</b>", _event_line),
-    ("acceleration", "⚡ <b>Ускоряются</b>", _event_line),
-    ("risingChannels", "\U0001F4C8 <b>Растущие каналы</b>", _channel_line),
-    ("repackaging", "✏️ <b>Перепаковки</b>", _swap_line),
-    ("drafts", "\U0001F4C5 <b>Календарь</b>", _event_line),
-    ("topics", "\U0001F3AF <b>Ваши темы</b>", _event_line),
-    ("milestones", "\U0001F3C1 <b>Рубежи</b>", _event_line),
-    ("gone", "\U0001F6AB <b>Пропали</b>", _event_line),
+    ("outliers", "\U0001F680 <b>New outlier videos</b>", _event_line),
+    ("acceleration", "⚡ <b>Accelerating</b>", _event_line),
+    ("risingChannels", "\U0001F4C8 <b>Rising channels</b>", _channel_line),
+    ("repackaging", "✏️ <b>Repackaging</b>", _swap_line),
+    ("drafts", "\U0001F4C5 <b>Calendar</b>", _event_line),
+    ("topics", "\U0001F3AF <b>Your topics</b>", _event_line),
+    ("milestones", "\U0001F3C1 <b>Milestones</b>", _event_line),
+    ("gone", "\U0001F6AB <b>Gone</b>", _event_line),
 )
 
 
 def _render(d, per_section: int) -> str:
-    lines = ["\U0001F5DE <b>niche-finder — за сутки</b>"]
+    lines = ["\U0001F5DE <b>niche-finder — last 24 hours</b>"]
     for key, header, line_fn in SECTIONS:
         sec = d.get(key) or {}
         if not sec.get("total"):
@@ -172,15 +172,15 @@ def _render(d, per_section: int) -> str:
         lines.append(f"{header} ({sec['total']})")
         lines += [line_fn(x) for x in shown]
         if sec["total"] > len(shown):
-            lines.append(f"…и ещё {sec['total'] - len(shown)}")
+            lines.append(f"…and {sec['total'] - len(shown)} more")
     lines.append("")
-    lines.append(f'<a href="{DASHBOARD_URL}/#/overview">открыть дашборд</a>')
+    lines.append(f'<a href="{DASHBOARD_URL}/#/overview">open the dashboard</a>')
     return "\n".join(lines)
 
 
 def format_digest(d: dict) -> str:
     """Telegram HTML, never longer than TELEGRAM_LIMIT: if the full list does
-    not fit, fewer items are shown per section (the rest become "…и ещё N")."""
+    not fit, fewer items are shown per section (the rest become "…and N more")."""
     most = max((len((d.get(k) or {}).get("items", [])) for k, _, _ in SECTIONS), default=0)
     for per_section in range(most, -1, -1):
         text = _render(d, per_section)

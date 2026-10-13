@@ -10,8 +10,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-# Выставляет NICHE_DB_SCHEMA (своя одноразовая схема на процесс) и вешает её
-# удаление на atexit -- импорт нужен именно ради этого побочного эффекта.
+# Sets NICHE_DB_SCHEMA (a throwaway schema of its own per process) and hooks its
+# removal on atexit -- the import is needed precisely for this side effect.
 import schema_scope  # noqa: F401,E402
 
 from fastapi.testclient import TestClient  # noqa: E402
@@ -36,7 +36,7 @@ def setup_module(_=None):
 
 def _no_network(monkeypatch):
     def boom(*a, **k):
-        raise AssertionError("тест ушёл в сеть: незапатченный вызов YouTube API")
+        raise AssertionError("the test went to the network: an unpatched YouTube API call")
     for name in ("search_videos", "videos_list", "channels_list", "channel_by_handle",
                  "playlist_items", "most_popular", "video_categories",
                  "videos_batch_get_stats", "comment_threads"):
@@ -78,8 +78,8 @@ def _uc(tag: str) -> str:
 
 
 def _seed_channel_with_handle(cid, handle):
-    """Кладём канал в базу локально (без сети), с известным custom_url, чтобы
-    проверить бесплатное локальное разрешение хэндла."""
+    """Put a channel into the database locally (no network), with a known custom_url, to
+    check the free local resolution of a handle."""
     conn = db.get_conn()
     now = db.now_iso()
     collector.store_channels(conn, [_api_channel(cid, custom_url=handle)], now)
@@ -105,7 +105,7 @@ def test_resolve_channel_id_extracts_uc_id_from_a_url():
 
 
 def test_resolve_channel_id_resolves_handle_locally_at_zero_quota(monkeypatch):
-    _no_network(monkeypatch)  # никакого вызова YouTube -- разрешаем из своей базы
+    _no_network(monkeypatch)  # no YouTube call -- resolve from our own database
     cid = _uc("resolveid2a")
     _seed_channel_with_handle(cid, "@resolvefromdb")
 
@@ -142,7 +142,7 @@ def test_resolve_channel_id_raises_without_api_key_when_not_known_locally(monkey
     conn = db.get_conn()
     try:
         T.resolve_channel_id(conn, None, "@totallyunknownhandle")
-        assert False, "должно было упасть"
+        assert False, "should have failed"
     except ValueError as e:
         assert "API" in str(e) or "key" in str(e)
     finally:
@@ -154,7 +154,7 @@ def test_resolve_channel_id_raises_a_readable_error_when_the_api_finds_nothing(m
     conn = db.get_conn()
     try:
         T.resolve_channel_id(conn, "test-key", "@nosuchhandle")
-        assert False, "должно было упасть"
+        assert False, "should have failed"
     except ValueError as e:
         assert "nosuchhandle" in str(e)
     finally:
@@ -179,12 +179,12 @@ def test_mcp_track_channel_without_collect_resolves_handle_to_real_id(monkeypatc
     ).fetchone()
     conn.close()
     assert row is not None
-    assert bad is None  # старый баг: сырой хэндл писался как есть
+    assert bad is None  # old bug: the raw handle was written as is
 
 
 def test_mcp_track_channel_unresolvable_handle_writes_nothing(monkeypatch):
-    # Не в локальной базе, а API (тоже замоканный) говорит "нет такого канала" --
-    # значит идём по тому же пути, что и на проде, когда ключ есть, но канал не найден.
+    # Not in the local database, and the API (also mocked) says "no such channel" --
+    # so we take the same path as in production when a key exists but the channel is not found.
     monkeypatch.setattr(yt, "channel_by_handle", lambda k, h, **kw: None)
     out = srv.track_channel("@nowhereinourdb", collect=False)
 
@@ -201,7 +201,7 @@ def test_http_track_endpoint_resolves_handle_to_real_id(monkeypatch):
     _no_network(monkeypatch)
     cid = _uc("resolveid5a")
     _seed_channel_with_handle(cid, "@httptrackhandle")
-    api.API_KEY = ""  # разрешаем без ключа -- канал уже есть локально
+    api.API_KEY = ""  # allow without a key -- the channel is already there locally
 
     resp = client.post("/api/channels/track", json={"channel_id": "@httptrackhandle"})
 
@@ -280,7 +280,7 @@ def test_viral_niche_all_preset_drops_the_size_and_view_thresholds():
     conn.close()
 
     default = trends.viral_videos_small_channels(period="all", niche="preset-niche")
-    assert default["matched"] == 0  # маленький ролик у крупного канала не проходит дефолт
+    assert default["matched"] == 0  # a small video from a large channel does not pass the default
 
     preset = trends.viral_videos_small_channels(period="all", niche="preset-niche",
                                                 preset="niche_all")
@@ -315,7 +315,7 @@ def test_fix_tracked_dry_run_reports_without_changing_anything(monkeypatch):
     still_there = conn.execute(
         "SELECT 1 FROM tracked_channels WHERE channel_id='@fixtrackedhandle'").fetchone()
     conn.close()
-    assert still_there is not None  # dry-run -- ничего не поменялось
+    assert still_there is not None  # dry-run -- nothing changed
 
 
 def test_fix_tracked_apply_rewrites_resolvable_rows_and_drops_the_rest(monkeypatch):

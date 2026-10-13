@@ -152,7 +152,7 @@ def hook_report(video_id: str, niche: str = None, llm: bool = False,
     if not row:
         return {"videoId": video_id, "found": True, "hasTranscript": False,
                 "hint": "No transcript saved for this video -- paste one on the "
-                        "Транскрипты screen (request_transcript / save_transcript) first."}
+                        "Transcripts screen (request_transcript / save_transcript) first."}
 
     hook = _hook_of(row["text"])
     result = _score_of(hook)
@@ -188,7 +188,7 @@ def niche_hook_benchmark(niche: str, outlier_threshold: float = OUTLIER_FROM,
     if not rows:
         return {"niche": niche, "found": False, "quotaUsed": 0,
                 "hint": "No saved transcripts for videos in this niche -- paste some on the "
-                        "Транскрипты screen first."}
+                        "Transcripts screen first."}
 
     from application import discovery as trends
     channel_ids = sorted({r["channel_id"] for r in rows})[:MAX_BENCHMARK_CHANNELS]

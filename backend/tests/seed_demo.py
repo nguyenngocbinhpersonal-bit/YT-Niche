@@ -74,7 +74,7 @@ def _demo_jpeg(bg, fg):
 
 def seed_packaging(conn):
     """Plan 05 demo: one retitled video and one thumbnail swap with both
-    archived versions, so the "Перепаковки" screen has something to show."""
+    archived versions, so the "Repackaging" screen has something to show."""
     vid = "avid000"
     before = (NOW - timedelta(days=3)).isoformat()
     after = (NOW - timedelta(days=1)).isoformat()
@@ -93,7 +93,7 @@ def seed_packaging(conn):
 
 def seed_alerts(conn):
     """Plan 04 demo: two tracked channels, one of them confirmed gone, and a
-    few events, so the "Алерты" screen and the channel's "gone" mark render."""
+    few events, so the "Alerts" screen and the channel's "gone" mark render."""
     alive, gone = "UC0000000000000000000a", "UC0000000000000000000f"
     missing = (NOW - timedelta(days=2)).isoformat()
     for cid in (alive, gone):

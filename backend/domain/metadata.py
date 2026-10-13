@@ -26,11 +26,11 @@ CAPS_WORD_RE = re.compile(r"(?<![\wА-ЯЁ])[A-ZА-ЯЁ]{3,}(?![\wа-яё])")
 TIMESTAMP_RE = re.compile(r"\b\d{1,2}:\d{2}(:\d{2})?\b")
 
 FEATURE_LABELS = {
-    "has_digit": "цифра в заголовке",
-    "has_brackets": "скобки в заголовке",
-    "has_question": "вопрос в заголовке",
-    "has_caps_word": "слово КАПСОМ",
-    "has_emoji": "эмодзи в заголовке",
+    "has_digit": "a digit in the title",
+    "has_brackets": "brackets in the title",
+    "has_question": "a question in the title",
+    "has_caps_word": "an ALL-CAPS word",
+    "has_emoji": "an emoji in the title",
 }
 
 
@@ -56,15 +56,15 @@ def length_signal(signal_id: str, value: int, baseline_values, label: str) -> di
         sample = stats["sample"] if stats else 0
         return {
             "id": signal_id, "value": value, "baseline": stats, "verdict": "unreliable",
-            "explanation": (f"{label}: {value} симв.; в базе только {sample} выбросов ниши "
-                            f"для сравнения (нужно {MIN_RELIABLE_SAMPLE}+)"),
+            "explanation": (f"{label}: {value} chars; the database has only {sample} niche outliers "
+                            f"to compare against ({MIN_RELIABLE_SAMPLE}+ needed)"),
         }
     verdict = "ok" if stats["p25"] <= value <= stats["p75"] else "warn"
     return {
         "id": signal_id, "value": value, "baseline": stats, "verdict": verdict,
-        "explanation": (f"{label}: {value} симв. против медианы {round(stats['median'])} "
-                        f"(p25-p75: {round(stats['p25'])}-{round(stats['p75'])}) у выбросов "
-                        f"ниши, выборка {stats['sample']}"),
+        "explanation": (f"{label}: {value} chars against a median of {round(stats['median'])} "
+                        f"(p25-p75: {round(stats['p25'])}-{round(stats['p75'])}) among niche "
+                        f"outliers, sample {stats['sample']}"),
     }
 
 
@@ -76,9 +76,10 @@ def visible_prefix_signal(title: str, key_phrase: str = None) -> dict:
     truncated = len(title) > VISIBLE_TITLE_CHARS
     hit = bool(key_phrase) and key_phrase.lower() in prefix.lower()
     verdict = "ok" if (not truncated or not key_phrase or hit) else "warn"
-    explanation = f"первые {VISIBLE_TITLE_CHARS} символов: «{prefix}»"
+    explanation = f"first {VISIBLE_TITLE_CHARS} characters: “{prefix}”"
     if key_phrase:
-        explanation += f" -- фраза «{key_phrase}» {'попадает' if hit else 'НЕ попадает'} в видимую часть"
+        explanation += (f" -- the phrase “{key_phrase}” "
+                        f"{'falls into' if hit else 'does NOT fall into'} the visible part")
     return {"id": "visible_prefix", "value": prefix, "truncated": truncated,
             "verdict": verdict, "explanation": explanation}
 
@@ -128,11 +129,11 @@ def tag_overlap(draft_tags, trending_phrases) -> dict:
     missing = [p for p in trending_norm if p not in draft_norm][:10]
     total_chars = sum(len(t) for t in (draft_tags or []))
     over_limit = total_chars > YOUTUBE_TAGS_CHAR_LIMIT
-    explanation = f"{len(draft_tags or [])} тегов, {total_chars}/{YOUTUBE_TAGS_CHAR_LIMIT} символов"
+    explanation = f"{len(draft_tags or [])} tags, {total_chars}/{YOUTUBE_TAGS_CHAR_LIMIT} characters"
     if over_limit:
-        explanation += " -- ПРЕВЫШЕН лимит YouTube, лишние теги будут отброшены"
+        explanation += " -- the YouTube limit is EXCEEDED, extra tags will be dropped"
     if trending_norm:
-        explanation += f"; из {len(trending_norm)} трендовых фраз ниши совпало {len(matched)}"
+        explanation += f"; of the niche's {len(trending_norm)} trending phrases, {len(matched)} matched"
     return {
         "id": "tags", "matchedTrending": matched, "missingTrending": missing,
         "tagCount": len(draft_tags or []), "totalChars": total_chars,
@@ -151,11 +152,11 @@ def description_signal(description: str, key_phrase: str = None) -> dict:
         verdict = "warn"
     else:
         verdict = "ok"
-    explanation = f"{len(desc)} симв."
+    explanation = f"{len(desc)} chars"
     if key_phrase:
-        explanation += (f"; фраза «{key_phrase}» {'есть' if hit else 'отсутствует'} в первых "
-                        f"{VISIBLE_DESCRIPTION_CHARS} символах (видно до «ещё»)")
-    explanation += "; таймкоды есть" if has_timestamps else "; таймкодов нет"
+        explanation += (f"; the phrase “{key_phrase}” {'is present' if hit else 'is absent'} in the first "
+                        f"{VISIBLE_DESCRIPTION_CHARS} characters (visible before \"more\")")
+    explanation += "; has timestamps" if has_timestamps else "; no timestamps"
     return {"id": "description", "length": len(desc), "visiblePrefix": prefix,
             "hasTimestamps": has_timestamps, "verdict": verdict, "explanation": explanation}
 

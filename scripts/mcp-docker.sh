@@ -17,13 +17,13 @@ ENV_FILE=""
 [ -f "$DIR/.env" ] && ENV_FILE="$DIR/.env"
 [ -z "$ENV_FILE" ] && [ -f "$DIR/backend/.env" ] && ENV_FILE="$DIR/backend/.env"
 
-# ВАЖНО: здесь НЕЛЬЗЯ использовать `docker run --env-file`.
-# `docker compose` парсит .env по правилам dotenv и снимает кавычки вокруг
-# значения, а `docker run --env-file` читает строку буквально — и
-# YOUTUBE_API_KEY="AIza..." уезжает в контейнер вместе с кавычками. Тогда
-# воркер (через compose) работает, а MCP-сервер получает битый ключ и КАЖДЫЙ
-# вызов к YouTube API падает. Ровно это сломало сессию 6 сентября 2026.
-# Поэтому разбираем файл сами и снимаем обрамляющие кавычки.
+# IMPORTANT: `docker run --env-file` must NOT be used here.
+# `docker compose` parses .env by dotenv rules and strips the quotes around
+# the value, while `docker run --env-file` reads the line literally — and
+# YOUTUBE_API_KEY="AIza..." goes into the container together with the quotes. Then
+# the worker (via compose) works while the MCP server gets a broken key and EVERY
+# call to the YouTube API fails. Exactly this broke the session on 6 September 2026.
+# So we parse the file ourselves and strip the surrounding quotes.
 set --
 if [ -n "$ENV_FILE" ]; then
   while IFS= read -r line || [ -n "$line" ]; do
@@ -39,10 +39,10 @@ if [ -n "$ENV_FILE" ]; then
     value=${line#*=}
     case "$name" in
       ''|*[!A-Za-z0-9_]*) continue ;;
-      # NICHE_DATABASE_URL в .env описывает путь к базе С ХОСТА
-      # (localhost:5433). Внутри контейнера localhost -- это сам контейнер, а в
-      # _dsn() этот URL важнее POSTGRES_*, поэтому он бы перебил
-      # POSTGRES_HOST=postgres ниже и сломал MCP-сервер. Оставляем его хосту.
+      # NICHE_DATABASE_URL in .env describes the path to the database FROM THE HOST
+      # (localhost:5433). Inside a container localhost is the container itself, and in
+      # _dsn() this URL takes priority over POSTGRES_*, so it would override
+      # POSTGRES_HOST=postgres below and break the MCP server. We leave it to the host.
       NICHE_DATABASE_URL) continue ;;
     esac
     case "$value" in
@@ -53,8 +53,8 @@ if [ -n "$ENV_FILE" ]; then
   done < "$ENV_FILE"
 fi
 
-# Код монтируется из репозитория, поэтому Claude Desktop всегда запускает
-# текущую версию — пересобирать образ нужно только при смене requirements.txt.
+# The code is mounted from the repository, so Claude Desktop always runs
+# the current version — the image needs a rebuild only when requirements.txt changes.
 exec docker run --rm -i \
   --network niche-finder_default \
   "$@" \

@@ -200,11 +200,11 @@ def collect_niche(api_key: str, query: str, label: str = None, language: str = N
         calls_today = search_calls_today(conn)
         if calls_today >= yt.SEARCH_DAILY_CALL_LIMIT:
             raise yt.QuotaExceeded(
-                f"Дневной лимит поиска исчерпан ({calls_today}/{yt.SEARCH_DAILY_CALL_LIMIT}). "
-                "search.list сбрасывается в полночь по Тихоокеанскому времени. "
-                f"Ниша '{slug}' уже создана (пока пустая) -- запустите тот же поиск "
-                "позже, или используйте collect_channel/collect_trending, которые "
-                "не тратят эту квоту."
+                f"The daily search limit is exhausted ({calls_today}/{yt.SEARCH_DAILY_CALL_LIMIT}). "
+                "search.list resets at midnight Pacific time. "
+                f"The niche '{slug}' is already created (still empty) -- run the same search "
+                "later, or use collect_channel/collect_trending, which "
+                "do not spend this quota."
             )
 
         video_ids, token = [], None

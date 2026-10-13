@@ -74,7 +74,7 @@ def test_every_tool_a_scenario_names_exists(name):
 
 @pytest.mark.parametrize("name", sorted(EXPECTED))
 def test_every_scenario_states_its_quota_cost(name):
-    assert "Квота" in text_of(name)
+    assert "Quota" in text_of(name)
 
 
 def test_arguments_are_filled_into_the_text():
@@ -92,12 +92,12 @@ def test_scenarios_that_collect_check_the_quota_first():
 def test_gaps_scenario_fetches_only_after_the_user_agrees():
     t = text_of("find_content_gaps")
     assert "fetch=false" in t and "fetch=true" in t
-    assert "согласи" in t
+    assert "agrees" in t
 
 
 def test_optional_arguments_have_defaults():
     t = text_of("find_niche")
-    assert "pages=1" in t or "1 страниц" in t
+    assert "pages=1" in t
 
 
 if __name__ == "__main__":

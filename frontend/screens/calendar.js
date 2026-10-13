@@ -1,14 +1,13 @@
-/* Экран дашборда. Роутинг -- router.js, общее -- shared.js, компоненты -- ui.js. */
+/* Dashboard screen. Routing -- router.js, shared code -- shared.js, components -- ui.js. */
 import { $, api, q, esc, toast, sectionHead, empty, notice } from '../ui.js';
 import { view } from '../shared.js';
 
-/* --------------------------------------------- Контент-календарь (план 33) */
+/* --------------------------------------------- Content calendar (plan 33) */
 
-// Время хранится в UTC, показывается в часовом поясе браузера.
-const STATE = { planned: ['', 'запланировано'], overdue: ['chip-bad', 'просрочено'],
-  published: ['chip-good', 'вышло'], unplanned: ['', 'без даты'] };
-const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-const WEEKDAY_RU = { Mon: 'пн', Tue: 'вт', Wed: 'ср', Thu: 'чт', Fri: 'пт', Sat: 'сб', Sun: 'вс' };
+// Time is stored in UTC and shown in the browser's time zone.
+const STATE = { planned: ['', 'planned'], overdue: ['chip-bad', 'overdue'],
+  published: ['chip-good', 'published'], unplanned: ['', 'no date'] };
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 let mode = 'week';
 let anchor = startOfWeek(new Date());
@@ -33,7 +32,7 @@ function range() {
 }
 
 const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const hhmm = (iso) => new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+const hhmm = (iso) => new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 const localInput = (iso) => {
   const d = new Date(iso);
   return `${dayKey(d)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -44,7 +43,7 @@ function chip(x) {
   const when = x.plannedAt || x.publishedAt;
   return `<div class="chip ${cls} cal-item" draggable="${x.state === 'published' ? 'false' : 'true'}" data-id="${x.id}"
     style="display:block;margin:3px 0;cursor:pointer;white-space:normal;text-align:left"
-    title="${esc(x.title || '')}">${when ? `<b>${hhmm(when)}</b> ` : ''}${esc(x.title || `черновик ${x.id}`)}</div>`;
+    title="${esc(x.title || '')}">${when ? `<b>${hhmm(when)}</b> ` : ''}${esc(x.title || `draft ${x.id}`)}</div>`;
 }
 
 function grid(d, start, days) {
@@ -74,21 +73,21 @@ function editor(d) {
   const [cls, label] = STATE[x.state] || ['', x.state];
   const plan = lastPlan && lastPlan.id === x.id ? lastPlan : null;
   const slots = plan?.bestSlots?.length
-    ? `Лучшее время ниши (UTC): ${plan.bestSlots.map((s) => `${WEEKDAY_RU[s.weekday] || s.weekday} ${String(s.hour).padStart(2, '0')}:00`).join(', ')}${
-      plan.fitsBestSlot === true ? ' — вы попали в одно из них.' : plan.fitsBestSlot === false ? ' — выбранное время не из них.' : ''}`
+    ? `Best time for the niche (UTC): ${plan.bestSlots.map((s) => `${s.weekday} ${String(s.hour).padStart(2, '0')}:00`).join(', ')}${
+      plan.fitsBestSlot === true ? ' — you hit one of them.' : plan.fitsBestSlot === false ? ' — the chosen time is not one of them.' : ''}`
     : '';
-  return `<div class="card">${sectionHead(x.title || `Черновик ${x.id}`, x.niche ? `ниша ${x.niche}` : '',
+  return `<div class="card">${sectionHead(x.title || `Draft ${x.id}`, x.niche ? `niche ${x.niche}` : '',
       `<span class="chip ${cls}">${esc(label)}</span>`)}
-    ${x.state === 'published' ? `<div class="section-sub">Вышло: <a href="https://www.youtube.com/watch?v=${esc(x.videoId)}" target="_blank" rel="noopener">${esc(x.videoId)}</a></div>`
+    ${x.state === 'published' ? `<div class="section-sub">Published: <a href="https://www.youtube.com/watch?v=${esc(x.videoId)}" target="_blank" rel="noopener">${esc(x.videoId)}</a></div>`
       : `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-        <label class="field-label">Дата и время выпуска (ваш часовой пояс)<br>
+        <label class="field-label">Release date and time (your time zone)<br>
           <input type="datetime-local" id="calWhen" value="${x.plannedAt ? localInput(x.plannedAt) : ''}"></label>
-        <button class="btn" id="calSave">Сохранить</button>
-        ${x.plannedAt ? '<button class="btn btn-ghost" id="calUnplan">Убрать из календаря</button>' : ''}
+        <button class="btn" id="calSave">Save</button>
+        ${x.plannedAt ? '<button class="btn btn-ghost" id="calUnplan">Remove from calendar</button>' : ''}
       </div>
       ${slots ? `<div class="section-sub" style="margin-top:8px">${esc(slots)}</div>` : ''}
-      <div class="section-sub" style="margin-top:8px">Напоминание придёт в Telegram и дайджест за сутки и в момент выпуска,
-        пока черновик не связан с вышедшим видео (кнопка «привязать» на экране «Разбор метаданных»).</div>`}
+      <div class="section-sub" style="margin-top:8px">A reminder arrives in Telegram and the digest a day before and at release time,
+        until the draft is linked to a published video (the "link" button on the "Metadata review" screen).</div>`}
   </div>`;
 }
 
@@ -96,7 +95,7 @@ async function plan(id, iso) {
   try {
     lastPlan = await api(`/api/drafts/${id}/plan`, { method: 'POST', body: { plannedAt: iso } });
     selected = id;
-    toast(iso ? 'Черновик в календаре' : 'Черновик убран из календаря', 'ok');
+    toast(iso ? 'Draft added to the calendar' : 'Draft removed from the calendar', 'ok');
     viewCalendar();
   } catch (e) { toast(e.message, 'err'); }
 }
@@ -106,25 +105,25 @@ async function viewCalendar() {
   const days = Math.round((end - start) / 864e5);
   const d = await api('/api/calendar' + q({ start: start.toISOString(), end: end.toISOString() }));
   const title = mode === 'week'
-    ? `${start.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} — ${new Date(end - 864e5).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}`
-    : anchor.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+    ? `${start.toLocaleDateString('en-US', { day: 'numeric', month: 'long' })} — ${new Date(end - 864e5).toLocaleDateString('en-US', { day: 'numeric', month: 'long' })}`
+    : anchor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   view.innerHTML = `
     <div class="card">
-      ${sectionHead('Календарь', 'черновики по дням выпуска · перетащите черновик на день', `
+      ${sectionHead('Calendar', 'drafts by release day · drag a draft onto a day', `
         <button class="btn btn-ghost btn-sm" id="calPrev">‹</button>
-        <button class="btn btn-ghost btn-sm" id="calToday">Сегодня</button>
+        <button class="btn btn-ghost btn-sm" id="calToday">Today</button>
         <button class="btn btn-ghost btn-sm" id="calNext">›</button>
-        <button class="btn btn-ghost btn-sm" id="calMode">${mode === 'week' ? 'Месяц' : 'Неделя'}</button>`)}
+        <button class="btn btn-ghost btn-sm" id="calMode">${mode === 'week' ? 'Month' : 'Week'}</button>`)}
       <div class="section-title" style="margin-bottom:8px">${esc(title)}</div>
       ${grid(d, start, days)}
     </div>
     <div class="card">
-      ${sectionHead('Без даты', 'черновики из брифа и разбора метаданных — перетащите на день или нажмите')}
+      ${sectionHead('No date', 'drafts from the brief and metadata review — drag onto a day or click')}
       ${d.unplanned.length ? `<div class="cal-day" data-day="" style="display:flex;flex-wrap:wrap;gap:6px">
-        ${d.unplanned.map(chip).join('')}</div>` : empty('все черновики уже в календаре — новые появляются из брифа и «Разбора метаданных»')}
+        ${d.unplanned.map(chip).join('')}</div>` : empty('all drafts are already on the calendar — new ones come from the brief and "Metadata review"')}
     </div>
     ${editor(d)}
-    ${notice('Время показано в часовом поясе браузера, хранится в UTC. Лучшее время ниши — корреляция, не гарантия.')}`;
+    ${notice('Time is shown in the browser\'s time zone and stored in UTC. The niche\'s best time is a correlation, not a guarantee.')}`;
 
   const move = (delta) => {
     if (mode === 'week') anchor.setDate(anchor.getDate() + 7 * delta);
@@ -156,7 +155,7 @@ async function viewCalendar() {
       const id = Number(e.dataTransfer.getData('text/plain'));
       const x = all.find((i) => i.id === id);
       if (!x) return;
-      // время сохраняем, меняем только день; у черновика без даты -- 12:00
+      // keep the time and change only the day; a draft without a date gets 12:00
       const old = x.plannedAt ? new Date(x.plannedAt) : null;
       const [y, m, dd] = cell.dataset.day.split('-').map(Number);
       const when = new Date(y, m - 1, dd, old ? old.getHours() : 12, old ? old.getMinutes() : 0);
@@ -165,7 +164,7 @@ async function viewCalendar() {
   });
   $('#calSave')?.addEventListener('click', () => {
     const v = $('#calWhen').value;
-    if (!v) { toast('Укажите дату и время', 'err'); return; }
+    if (!v) { toast('Enter a date and time', 'err'); return; }
     plan(selected, new Date(v).toISOString());
   });
   $('#calUnplan')?.addEventListener('click', () => plan(selected, null));

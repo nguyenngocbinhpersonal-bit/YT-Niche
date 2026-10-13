@@ -66,7 +66,7 @@ def save_transcript(video_id: str, raw_text: str, language: str = None,
     """Parse -> chunk -> embed -> store, all synchronous (fastembed is
     local, no network). Any failure writes status='error' with the message
     instead of raising, so a bad paste shows up in the queue with a
-    "Повторить" button rather than a 500."""
+    "Retry" button rather than a 500."""
     conn = db.get_conn()
     conn.execute(
         "INSERT INTO transcript_requests (user_id, video_id, status, created_at) "

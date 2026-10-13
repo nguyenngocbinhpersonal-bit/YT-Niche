@@ -1,19 +1,19 @@
-/* Экран дашборда. Роутинг -- router.js, общее -- shared.js, компоненты -- ui.js. */
+/* Dashboard screen. Routing -- router.js, shared code -- shared.js, components -- ui.js. */
 import { $, api, q, num, compact, ago, esc, toast, sectionHead, empty } from '../ui.js';
 import { view, render } from '../shared.js';
 
-/* ------------------------------------------------------------- Алерты */
+/* ------------------------------------------------------------- Alerts */
 
-/* Те же события, что уходят в Telegram/webhook; видны только по каналам из трекера. */
+/* The same events that go to Telegram/webhook; visible only for tracked channels. */
 const KINDS = {
-  outlier: ['Outlier', (p) => `×${p.outlierScore} · ${compact(p.views)} просмотров`],
-  acceleration: ['Ускорение', (p) => `×${p.acceleration} · ${num(p.vph24h)} VPH за 24 ч`],
-  title_change: ['Смена заголовка', (p) => `«${p.oldTitle || ''}» → «${p.newTitle || ''}»`],
-  silence_break: ['Вернулись после паузы', (p) => `молчали ${p.gapDays} дн`],
-  channel_gone: ['Канал исчез', (p) => `было ${compact(p.subscribers)} подп. · ${compact(p.views)} просмотров · ${num(p.videoCount)} видео`],
-  video_gone: ['Видео исчезло', (p) => `было outlier ×${p.outlierScore} · ${compact(p.views)} просмотров`],
-  milestone: ['Рубеж', (p) => `${num(p.milestone)} подписчиков · сейчас ${num(p.subscribers)}`],
-  topic_match: ['Тема', (p) => `«${p.topic}» · похожесть ${p.similarity}${p.channelTitle ? ` · ${p.channelTitle}` : ''}`],
+  outlier: ['Outlier', (p) => `×${p.outlierScore} · ${compact(p.views)} views`],
+  acceleration: ['Acceleration', (p) => `×${p.acceleration} · ${num(p.vph24h)} VPH over 24 h`],
+  title_change: ['Title change', (p) => `“${p.oldTitle || ''}” → “${p.newTitle || ''}”`],
+  silence_break: ['Back after a pause', (p) => `silent for ${p.gapDays} d`],
+  channel_gone: ['Channel gone', (p) => `had ${compact(p.subscribers)} subs · ${compact(p.views)} views · ${num(p.videoCount)} videos`],
+  video_gone: ['Video gone', (p) => `was outlier ×${p.outlierScore} · ${compact(p.views)} views`],
+  milestone: ['Milestone', (p) => `${num(p.milestone)} subscribers · now ${num(p.subscribers)}`],
+  topic_match: ['Topic', (p) => `“${p.topic}” · similarity ${p.similarity}${p.channelTitle ? ` · ${p.channelTitle}` : ''}`],
 };
 const GONE = new Set(['channel_gone', 'video_gone']);
 
@@ -23,44 +23,44 @@ function eventRow(e) {
   const title = p.videoId
     ? `<a href="https://www.youtube.com/watch?v=${esc(p.videoId)}" target="_blank" rel="noopener">${esc(p.title || p.videoId)}</a>`
     : esc(p.title || e.refId);
-  const channel = p.channelId ? ` · <a href="#/channel/${esc(p.channelId)}">канал</a>` : '';
+  const channel = p.channelId ? ` · <a href="#/channel/${esc(p.channelId)}">channel</a>` : '';
   return `<div class="row">
     <div class="row-main">
-      <div class="row-title">${e.seenAt ? '' : '<span class="chip chip-accent">новое</span> '}
+      <div class="row-title">${e.seenAt ? '' : '<span class="chip chip-accent">new</span> '}
         <span class="chip ${GONE.has(e.kind) ? 'chip-bad' : ''}">${esc(label)}</span> ${title}</div>
       <div class="row-sub">${esc(line(p))}${channel} · ${ago(e.createdAt)}</div>
     </div>
   </div>`;
 }
 
-/* План 19: свои темы. Новое видео, близкое к теме по эмбеддингу, даёт личный
-   алерт «Тема» — только автору темы. Квота не тратится. */
+/* Plan 19: your own topics. A new video close to a topic by embedding gives a personal
+   "Topic" alert — only to the topic's author. No quota is spent. */
 function topicsCard(t) {
   const row = (x) => `<div class="row">
     <div class="row-main">
-      <div class="row-title">${x.paused ? '<span class="chip">пауза</span> ' : ''}${esc(x.text)}</div>
-      <div class="row-sub">порог похожести ${x.threshold} · с ${new Date(x.createdAt).toLocaleDateString('ru-RU')}${
-        x.searchYoutube ? ` · ищется на YouTube${x.lastSearchedAt ? `, последний раз ${new Date(x.lastSearchedAt).toLocaleString('ru-RU')}` : ''}` : ''}</div>
+      <div class="row-title">${x.paused ? '<span class="chip">paused</span> ' : ''}${esc(x.text)}</div>
+      <div class="row-sub">similarity threshold ${x.threshold} · since ${new Date(x.createdAt).toLocaleDateString('en-US')}${
+        x.searchYoutube ? ` · searched on YouTube${x.lastSearchedAt ? `, last time ${new Date(x.lastSearchedAt).toLocaleString('en-US')}` : ''}` : ''}</div>
     </div>
     <button class="btn btn-ghost btn-sm" data-search="${x.id}" data-on="${x.searchYoutube ? 1 : 0}" type="button"
-      data-tip="Раз в сутки искать новые видео по теме на всём YouTube: один поиск из 100 в день на всю установку, не больше 5 тем в день">${
-        x.searchYoutube ? 'Не искать на YouTube' : 'Искать на YouTube'}</button>
-    <button class="btn btn-ghost btn-sm" data-pause="${x.id}" data-paused="${x.paused ? 1 : 0}" type="button">${x.paused ? 'Возобновить' : 'Пауза'}</button>
-    <button class="btn btn-ghost btn-sm" data-del="${x.id}" type="button">Убрать</button>
+      data-tip="Once a day, search for new videos on the topic across all of YouTube: one search of the 100 per day for the whole installation, no more than 5 topics per day">${
+        x.searchYoutube ? 'Stop searching YouTube' : 'Search YouTube'}</button>
+    <button class="btn btn-ghost btn-sm" data-pause="${x.id}" data-paused="${x.paused ? 1 : 0}" type="button">${x.paused ? 'Resume' : 'Pause'}</button>
+    <button class="btn btn-ghost btn-sm" data-del="${x.id}" type="button">Remove</button>
   </div>`;
   return `<div class="card">
-    ${sectionHead('Мои темы', 'алерт, когда в базу попадает видео на вашу тему — из RSS трекера, собранных ниш и трендов; с галочкой «На YouTube» — ещё и из поиска раз в сутки')}
+    ${sectionHead('My topics', 'an alert when a video on your topic enters the database — from the tracker RSS, collected niches and trends; with the "On YouTube" box checked — also from a daily search')}
     <div class="form-row">
-      <label class="field" style="flex:1"><span class="field-label">Тема своими словами</span>
-        <input id="tpText" placeholder="например, ИИ-агенты для малого бизнеса" maxlength="300"></label>
-      <label class="field"><span class="field-label">Порог</span>
+      <label class="field" style="flex:1"><span class="field-label">Topic in your own words</span>
+        <input id="tpText" placeholder="e.g. AI agents for small business" maxlength="300"></label>
+      <label class="field"><span class="field-label">Threshold</span>
         <input id="tpThr" type="number" min="0.3" max="0.95" step="0.05" value="0.6" style="width:90px"></label>
-      <label class="field" data-tip="Раз в сутки искать новые видео по теме на всём YouTube — один поиск из 100 в день">
-        <span class="field-label">На YouTube</span><input type="checkbox" id="tpSearch"></label>
-      <button class="btn" id="tpAdd" type="button">Следить</button>
+      <label class="field" data-tip="Once a day, search for new videos on the topic across all of YouTube — one search of the 100 per day">
+        <span class="field-label">On YouTube</span><input type="checkbox" id="tpSearch"></label>
+      <button class="btn" id="tpAdd" type="button">Follow</button>
     </div>
     ${t.topics.length ? `<div class="rows" style="margin-top:10px">${t.topics.map(row).join('')}</div>`
-                      : '<div class="section-sub" style="margin-top:10px">тем пока нет</div>'}
+                      : '<div class="section-sub" style="margin-top:10px">no topics yet</div>'}
   </div>`;
 }
 
@@ -69,7 +69,7 @@ function wireTopics() {
     try {
       await api('/api/topics', { method: 'POST', body: {
         text: $('#tpText').value, threshold: Number($('#tpThr').value), searchYoutube: $('#tpSearch').checked } });
-      toast('Тема добавлена — совпадения появятся здесь', 'ok');
+      toast('Topic added — matches will appear here', 'ok');
       render();
     } catch (err) { toast(err.message, 'err'); }
   });
@@ -89,7 +89,7 @@ function wireTopics() {
 
 async function viewAlerts() {
   const p = { kind: '', unseen_only: false };
-  try { Object.assign(p, JSON.parse(localStorage.getItem('nf.alerts') || '{}')); } catch (e) { /* пусто */ }
+  try { Object.assign(p, JSON.parse(localStorage.getItem('nf.alerts') || '{}')); } catch (e) { /* empty */ }
   const [d, topics] = await Promise.all([
     api(`/api/events${q({ kind: p.kind, unseen_only: p.unseen_only || '', limit: 200 })}`),
     api('/api/topics')]);
@@ -97,22 +97,22 @@ async function viewAlerts() {
 
   view.innerHTML = `
     <div class="card">
-      ${sectionHead('Алерты', 'события по каналам из трекера и по вашим темам — то же, что уходит в Telegram или webhook',
-        '<button class="btn btn-ghost btn-sm" id="alSeen" type="button">Отметить всё прочитанным</button>')}
+      ${sectionHead('Alerts', 'events for tracked channels and for your topics — the same as what goes to Telegram or a webhook',
+        '<button class="btn btn-ghost btn-sm" id="alSeen" type="button">Mark all as read</button>')}
       <div class="form-row">
-        <label class="field"><span class="field-label">Тип</span>
-          <select id="alKind">${opt('', 'все')}${Object.entries(KINDS).map(([k, [l]]) => opt(k, l)).join('')}</select></label>
-        <label class="field"><span class="field-label">Только новые</span>
+        <label class="field"><span class="field-label">Type</span>
+          <select id="alKind">${opt('', 'all')}${Object.entries(KINDS).map(([k, [l]]) => opt(k, l)).join('')}</select></label>
+        <label class="field"><span class="field-label">New only</span>
           <input type="checkbox" id="alUnseen"${p.unseen_only ? ' checked' : ''}></label>
-        <button class="btn" id="alApply" type="button">Применить</button>
+        <button class="btn" id="alApply" type="button">Apply</button>
       </div>
-      <div class="section-sub" style="margin-top:10px">Показано: <b>${num(d.events.length)}</b> · новых всего:
-        <b>${num(d.unseenCount)}</b> · квота не тратится. «Исчез» ставится после двух промахов API
-        с разницей не меньше 6 часов: канал удалён, скрыт или заблокирован.</div>
+      <div class="section-sub" style="margin-top:10px">Shown: <b>${num(d.events.length)}</b> · new in total:
+        <b>${num(d.unseenCount)}</b> · no quota is spent. "Gone" is set after two API misses
+        at least 6 hours apart: the channel is deleted, hidden or blocked.</div>
     </div>
     <div class="card">
       ${d.events.length ? `<div class="rows">${d.events.map(eventRow).join('')}</div>`
-                        : empty('событий нет — добавьте каналы в трекер или тему ниже, воркер проверяет их по расписанию')}
+                        : empty('no events — add channels to the tracker or a topic below, the worker checks them on a schedule')}
     </div>
     ${topicsCard(topics)}`;
   wireTopics();
@@ -125,7 +125,7 @@ async function viewAlerts() {
   });
   $('#alSeen').addEventListener('click', async () => {
     await api('/api/events/seen', { method: 'POST', body: { all: true } });
-    toast('Все алерты отмечены прочитанными');
+    toast('All alerts marked as read');
     render();
   });
 }

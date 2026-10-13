@@ -22,8 +22,8 @@ niche-finder, not YouTube data, and a correlation, not a promise.
 """
 
 WEIGHTS = {"demand": 25, "supply": 20, "newcomers": 20, "rpm": 15, "template": 10, "policy": 10}
-LABELS = {"demand": "Спрос", "supply": "Предложение", "newcomers": "Новички пробиваются",
-          "rpm": "RPM", "template": "Шаблонные каналы", "policy": "Сигналы по правилам"}
+LABELS = {"demand": "Demand", "supply": "Supply", "newcomers": "Newcomers break out",
+          "rpm": "RPM", "template": "Templated channels", "policy": "Policy signals"}
 # value that scores 0 and value that scores 100 (a term can run either way)
 RAMPS = {"demand": (0.6, 1.4), "supply": (1.6, 0.6), "newcomers": (0.0, 0.3),
          "rpm": (1.0, 8.0), "template": (0.5, 0.0), "policy": (0.7, 0.0)}

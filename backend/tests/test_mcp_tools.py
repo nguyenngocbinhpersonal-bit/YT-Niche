@@ -10,8 +10,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-# Выставляет NICHE_DB_SCHEMA (своя одноразовая схема на процесс) и вешает её
-# удаление на atexit -- импорт нужен именно ради этого побочного эффекта.
+# Sets NICHE_DB_SCHEMA (a throwaway schema of its own per process) and hooks its
+# removal on atexit -- the import is needed precisely for this side effect.
 import schema_scope  # noqa: F401,E402
 
 import infrastructure.postgres as db  # noqa: E402
@@ -224,21 +224,21 @@ def test_video_comments_requires_api_key(monkeypatch):
 
 
 # ============================================================================
-# Тулы, которые ходят в YouTube: collect_* / refresh_* / track_channel.
+# Tools that go to YouTube: collect_* / refresh_* / track_channel.
 #
-# Ни один тест ниже не выходит в сеть и не требует ключа -- клиент
-# infrastructure.youtube.client монкипатчится целиком, как в
-# test_video_comments_tool_shapes_raw_comments выше. Проверяем именно функции
-# из interfaces.mcp.server, а не слои под ними: иначе интерфейсный слой
-# остаётся непокрытым.
+# None of the tests below goes to the network or needs a key -- the
+# infrastructure.youtube.client client is monkeypatched entirely, as in
+# test_video_comments_tool_shapes_raw_comments above. We test the functions
+# of interfaces.mcp.server themselves, not the layers below them: otherwise the interface layer
+# stays uncovered.
 #
-# Тесты обязаны быть независимыми от порядка: самодельный раннер внизу файла
-# гоняет их в алфавитном порядке, pytest -- в порядке объявления.
+# The tests must be order-independent: the home-made runner at the bottom of the file
+# runs them in alphabetical order, pytest in declaration order.
 
 
 def _api_channel(cid, title="Fake Channel", subs=1000, videos=10, views=100000,
                  uploads="UUfake"):
-    """Ответ channels.list в том виде, в каком его разбирает store_channels."""
+    """A channels.list response in the form store_channels parses."""
     return {
         "id": cid,
         "snippet": {"title": title, "description": "fake channel",
@@ -251,12 +251,12 @@ def _api_channel(cid, title="Fake Channel", subs=1000, videos=10, views=100000,
 
 
 def _no_network(monkeypatch):
-    """Затыкает все пути в сеть, которыми может пойти resolve_channel.
+    """Plugs all the network paths resolve_channel might take.
 
-    Без этого опечатка в id канала (CHANNEL_ID_RE ждёт ровно UC + 22 символа)
-    тихо уводит тест в ветку @handle и в живой googleapis.com."""
+    Without this a typo in a channel id (CHANNEL_ID_RE expects exactly UC + 22 characters)
+    quietly sends the test down the @handle branch and to the live googleapis.com."""
     def boom(*a, **k):
-        raise AssertionError("тест ушёл в сеть: незапатченный вызов YouTube API")
+        raise AssertionError("the test went to the network: an unpatched YouTube API call")
     for name in ("search_videos", "videos_list", "channels_list", "channel_by_handle",
                  "playlist_items", "most_popular", "video_categories",
                  "videos_batch_get_stats", "comment_threads"):
@@ -265,7 +265,7 @@ def _no_network(monkeypatch):
 
 def _api_video(vid, cid, title="Fake Video", views=1000,
                published="2026-01-01T00:00:00Z"):
-    """Ответ videos.list в том виде, в каком его разбирает store_videos."""
+    """A videos.list response in the form store_videos parses."""
     return {
         "id": vid,
         "snippet": {"channelId": cid, "title": title, "description": "fake video",
@@ -302,7 +302,7 @@ def test_collect_channel_stores_videos_without_spending_search(monkeypatch):
     assert out["channelId"] == cid
     assert out["videos_found"] == 2
     assert out["videos_stored"] == 2
-    # весь смысл тула: идём через uploads-плейлист и не трогаем дневной лимит поиска
+    # the whole point of the tool: go through the uploads playlist and do not touch the daily search limit
     assert out["quota"]["search_calls"] == 0
 
     conn = db.get_conn()
@@ -340,8 +340,8 @@ def test_collect_niche_spends_one_search_call_per_page(monkeypatch):
     after = collector.search_calls_today(conn)
     conn.close()
 
-    assert pages_served == [None, "tok"], "вторая страница должна идти по nextPageToken"
-    assert after == before + 2, "каждая страница search.list списывается со счётчика"
+    assert pages_served == [None, "tok"], "the second page must go by nextPageToken"
+    assert after == before + 2, "each search.list page is deducted from the counter"
     assert out["niche"] == "fake-niche"
     assert out["videos_stored"] == 2
 
@@ -392,8 +392,8 @@ def test_refresh_stats_appends_history_instead_of_overwriting(monkeypatch):
     srv.refresh_stats(scope="all", limit=5000)
     twice = _count(sql, (vid,))
 
-    # Ровно то поведение, на котором стоит idempotentHint=False у refresh_stats:
-    # captured_at ставится в now(), поэтому ON CONFLICT никогда не срабатывает.
+    # Exactly the behaviour on which idempotentHint=False of refresh_stats rests:
+    # captured_at is set to now(), so ON CONFLICT never fires.
     assert once == before + 1
     assert twice == once + 1
 
@@ -528,8 +528,8 @@ def test_refresh_categories_upserts_and_does_not_duplicate(monkeypatch):
     srv.refresh_categories(regions=["ZZ"])
     srv.refresh_categories(regions=["ZZ"])
 
-    # Единственный из collect/refresh, который идемпотентен: истории нет, только
-    # upsert по (category_id, region).
+    # The only one of collect/refresh that is idempotent: there is no history, only
+    # an upsert by (category_id, region).
     assert _count("SELECT COUNT(*) FROM video_categories "
                   "WHERE category_id='9999' AND region='ZZ'") == 1
 
@@ -546,15 +546,15 @@ def test_track_then_untrack_keeps_what_was_already_collected(monkeypatch):
     monkeypatch.setattr(yt, "videos_list",
                         lambda k, ids, **kw: [_api_video(v, cid) for v in ids])
 
-    out = srv.track_channel(cid, note="следим")
+    out = srv.track_channel(cid, note="watching")
     assert out["tracked"] is True
     assert cid in {c["channel_id"] for c in srv.list_tracked_channels()}
 
     srv.untrack_channel(cid)
     assert cid not in {c["channel_id"] for c in srv.list_tracked_channels()}
 
-    # Ровно то, что обещает докстринг untrack_channel и что стоит за
-    # destructiveHint=True: канал уходит из списка, собранное остаётся.
+    # Exactly what the untrack_channel docstring promises and what stands behind
+    # destructiveHint=True: the channel leaves the list, what was collected stays.
     assert _count("SELECT COUNT(*) FROM videos WHERE channel_id=?", (cid,)) == 1
 
 
@@ -565,7 +565,7 @@ def test_scan_for_alerts_never_duplicates_and_seen_can_be_cleared():
     first = _count("SELECT COUNT(*) FROM events")
     srv.scan_for_alerts()
     second = _count("SELECT COUNT(*) FROM events")
-    assert second == first, "повторный скан не создаёт дубль по тому же (kind, ref_id)"
+    assert second == first, "a repeat scan does not create a duplicate for the same (kind, ref_id)"
 
     srv.mark_events_seen(all_unseen=True)
     assert srv.list_events(unseen_only=True, limit=1000) == []
@@ -574,15 +574,15 @@ def test_scan_for_alerts_never_duplicates_and_seen_can_be_cleared():
 # --------------------------------------------------- swipe file
 
 def test_saved_item_roundtrip_and_delete_is_safe_to_repeat():
-    saved = srv.save_item("video", "vswipe1", note="хороший ролик")
+    saved = srv.save_item("video", "vswipe1", note="a good video")
     item_id = saved["id"]
     assert item_id in {i["id"] for i in srv.list_saved_items(kind="video")}
 
     srv.delete_saved_item(item_id)
     assert item_id not in {i["id"] for i in srv.list_saved_items(kind="video")}
 
-    # delete_saved_item несёт destructiveHint=True, но idempotentHint=True:
-    # повторный вызов обязан быть безобидным.
+    # delete_saved_item carries destructiveHint=True but idempotentHint=True:
+    # a repeat call must be harmless.
     srv.delete_saved_item(item_id)
 
 
@@ -596,8 +596,8 @@ def test_calibrate_maturity_curve_only_reads():
 
     before = snapshot()
     srv.calibrate_maturity_curve(min_videos=1)
-    # Вопреки названию тул ничего не калибрует в базе -- он считает кривую и
-    # отдаёт её текстом. На этом стоит readOnlyHint=True.
+    # Despite the name the tool calibrates nothing in the database -- it computes a curve and
+    # returns it as text. readOnlyHint=True rests on this.
     assert snapshot() == before
 
 
@@ -647,21 +647,21 @@ def test_tag_stats_tool_on_an_empty_niche_gives_a_hint():
     assert "hint" in out
 
 
-# --------------------------------------------------- тонкие делегаты
+# --------------------------------------------------- thin delegates
 
 def test_thin_read_only_tools_answer_on_an_empty_corpus():
     assert isinstance(srv.list_niches(), list)
 
     sim = srv.similar_videos("vdoesnotexist")
     assert sim["similar"] == []
-    assert "hint" in sim, "без эмбеддинга тул обязан объяснить, почему пусто"
+    assert "hint" in sim, "without an embedding the tool must explain why it is empty"
 
     ov = srv.niche_overview_from_channel("UCdoesnotexist0000000001")
     assert ov["found"] is False
     assert "hint" in ov
 
-    # data_coverage и title_changes проверялись только на уровне application;
-    # дёргаем и сами тулы, иначе интерфейсный слой остаётся без теста.
+    # data_coverage and title_changes were tested only at the application level;
+    # we call the tools themselves too, otherwise the interface layer is left untested.
     cov = srv.data_coverage(period="30d")
     assert "searchCallsToday" in cov
 

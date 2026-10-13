@@ -153,7 +153,7 @@ def test_one_channels_string_of_hits_is_capped(monkeypatch):
 def test_a_thin_target_corpus_says_so():
     r = G.language_gaps("en", "ru")
     assert r["targetCorpus"]["thin"] is True and r["targetCorpus"]["videos"] == 12
-    assert r["targetCorpus"]["channels"] == 2 and "русском языке" in r["targetCorpus"]["hint"]
+    assert r["targetCorpus"]["channels"] == 2 and "Russian" in r["targetCorpus"]["hint"]
 
 
 def test_languages_without_a_language_are_not_counted_and_variants_merge():

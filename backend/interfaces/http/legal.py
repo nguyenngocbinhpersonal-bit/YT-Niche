@@ -67,7 +67,7 @@ requirements.</p>
 
 <h2>How long we keep it</h2>
 <p>Your channel's YouTube Analytics data is kept while your channel stays connected. Public YouTube data
-is refreshed from YouTube regularly. Disconnecting a channel ("Мои каналы" → "Отключить") revokes our
+is refreshed from YouTube regularly. Disconnecting a channel ("My channels" → "Disconnect") revokes our
 access at Google and deletes everything stored for that channel at once.</p>
 
 <h2>Your choices</h2>

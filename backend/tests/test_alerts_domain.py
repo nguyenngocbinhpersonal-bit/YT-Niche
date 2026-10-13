@@ -156,7 +156,7 @@ def _run_all():
             print(f"FAIL  {name}: {e}")
         except Exception as e:  # pragma: no cover
             print(f"ERROR {name}: {e!r}")
-    print(f"\n{passed}/{len(tests)} прошло")
+    print(f"\n{passed}/{len(tests)} passed")
     return passed == len(tests)
 
 

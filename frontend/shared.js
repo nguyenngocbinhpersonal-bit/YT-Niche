@@ -1,10 +1,10 @@
-/* Общее для экранов: контейнер #view, подписи периодов, форма сбора, подвал
-   с квотой, нишевый обзор и перерисовка текущего экрана. */
+/* Shared by screens: the #view container, period labels, the collect form, the footer
+   with quota, the niche overview and redrawing the current screen. */
 import { $, api, num, compact, mult, esc, toast, tile, sectionHead, barList, table, state, saturationBlock } from './ui.js';
 
-/* render() живёт в router.js, но экраны перерисовывают себя через него после
-   действий. Прямой импорт дал бы цикл router -> screens -> router, поэтому
-   router регистрирует свою функцию здесь при загрузке (setRender). */
+/* render() lives in router.js, but screens redraw themselves through it after
+   actions. A direct import would create a router -> screens -> router cycle, so
+   the router registers its function here at load time (setRender). */
 let renderImpl = null;
 function setRender(fn) { renderImpl = fn; }
 function render() { return renderImpl(); }
@@ -12,39 +12,39 @@ function render() { return renderImpl(); }
 const view = $('#view');
 
 const PERIOD_LABEL = {
-  '1h': 'за час', '6h': 'за 6 часов', '24h': 'за 24 часа', '48h': 'за 48 часов',
-  '7d': 'за 7 дней', '14d': 'за 14 дней', '30d': 'за 30 дней', '60d': 'за 60 дней',
-  '90d': 'за 90 дней', '180d': 'за 180 дней', '365d': 'за год', all: 'за всё время',
+  '1h': 'last hour', '6h': 'last 6 hours', '24h': 'last 24 hours', '48h': 'last 48 hours',
+  '7d': 'last 7 days', '14d': 'last 14 days', '30d': 'last 30 days', '60d': 'last 60 days',
+  '90d': 'last 90 days', '180d': 'last 180 days', '365d': 'last year', all: 'all time',
 };
-const plabel = (p) => PERIOD_LABEL[p] || `за ${p}`;
+const plabel = (p) => PERIOD_LABEL[p] || `last ${p}`;
 
 const SATURATION = {
-  'dominated by big channels -- hard to break in': 'доминируют крупные каналы — войти трудно',
-  'plenty of small channels performing -- room to enter': 'много выстреливающих мелких каналов — есть куда войти',
-  'mixed field': 'смешанное поле',
+  'dominated by big channels -- hard to break in': 'dominated by big channels — hard to break in',
+  'plenty of small channels performing -- room to enter': 'many small channels are breaking out — room to enter',
+  'mixed field': 'mixed field',
 };
 
 function base() { return { period: state.period, niche: state.niche }; }
 
-/* Форма сбора переиспользуется на нескольких экранах. */
+/* The collect form is reused on several screens. */
 function collectForm() {
   return `<div class="card">
-    ${sectionHead('Добавить данные', 'сбор тратит квоту YouTube; канал ≈ 1 unit на 50 видео')}
+    ${sectionHead('Add data', 'collecting spends YouTube quota; a channel ≈ 1 unit per 50 videos')}
     <div class="form-row">
-      <label class="field"><span class="field-label">Канал: @handle, UC-id или URL</span>
+      <label class="field"><span class="field-label">Channel: @handle, UC-id or URL</span>
         <input type="text" id="collectChannel" placeholder="@Inkexplainer96"></label>
-      <label class="field"><span class="field-label">Ниша (необязательно)</span>
+      <label class="field"><span class="field-label">Niche (optional)</span>
         <input type="text" id="collectNiche" placeholder="explainer"></label>
-      <button class="btn" id="collectBtn" type="button">Собрать канал</button>
-      <button class="btn btn-ghost" id="collectTrackBtn" type="button">Собрать и отслеживать</button>
+      <button class="btn" id="collectBtn" type="button">Collect channel</button>
+      <button class="btn btn-ghost" id="collectTrackBtn" type="button">Collect and track</button>
     </div>
     <div class="form-row" style="margin-top:12px">
-      <label class="field"><span class="field-label">Поисковый запрос (1 из 100 поисков в сутки)</span>
+      <label class="field"><span class="field-label">Search query (1 of 100 searches per day)</span>
         <input type="text" id="collectQuery" placeholder="ai automation"></label>
-      <label class="field"><span class="field-label">Окно публикации</span>
-        <select id="collectPeriod"><option value="">любое</option><option value="24h">24 часа</option>
-        <option value="7d">7 дней</option><option value="30d">30 дней</option></select></label>
-      <button class="btn btn-ghost" id="searchBtn" type="button">Собрать поиском</button>
+      <label class="field"><span class="field-label">Publication window</span>
+        <select id="collectPeriod"><option value="">any</option><option value="24h">24 hours</option>
+        <option value="7d">7 days</option><option value="30d">30 days</option></select></label>
+      <button class="btn btn-ghost" id="searchBtn" type="button">Collect by search</button>
     </div>
   </div>`;
 }
@@ -54,7 +54,7 @@ function wireCollect(refresh) {
     const b = $(`#${id}`);
     if (b) b.dataset.label = b.textContent;
   }
-  const busy = (btn, on) => { btn.disabled = on; btn.textContent = on ? 'Собираю…' : btn.dataset.label; };
+  const busy = (btn, on) => { btn.disabled = on; btn.textContent = on ? 'Collecting…' : btn.dataset.label; };
   const run = async (btn, path, body, ok) => {
     busy(btn, true);
     try {
@@ -65,56 +65,56 @@ function wireCollect(refresh) {
   };
   $('#collectBtn')?.addEventListener('click', () => {
     const ch = $('#collectChannel').value.trim();
-    if (!ch) return toast('Укажите канал', 'err');
+    if (!ch) return toast('Enter a channel', 'err');
     run($('#collectBtn'), '/api/collect/channel',
       { channel: ch, niche: $('#collectNiche').value.trim() || null },
-      (r) => `${r.channelTitle}: сохранено ${r.videos_stored} видео, ${r.quota.units_from_shared_pool} units`);
+      (r) => `${r.channelTitle}: saved ${r.videos_stored} videos, ${r.quota.units_from_shared_pool} units`);
   });
   $('#collectTrackBtn')?.addEventListener('click', () => {
     const ch = $('#collectChannel').value.trim();
-    if (!ch) return toast('Укажите канал', 'err');
+    if (!ch) return toast('Enter a channel', 'err');
     run($('#collectTrackBtn'), '/api/collect/channel',
       { channel: ch, niche: $('#collectNiche').value.trim() || null, track: true },
-      (r) => `${r.channelTitle} добавлен в трекер, ${r.videos_stored} видео`);
+      (r) => `${r.channelTitle} added to the tracker, ${r.videos_stored} videos`);
   });
   $('#searchBtn')?.addEventListener('click', () => {
     const query = $('#collectQuery').value.trim();
-    if (!query) return toast('Укажите запрос', 'err');
+    if (!query) return toast('Enter a query', 'err');
     run($('#searchBtn'), '/api/collect/niche',
       { query, period: $('#collectPeriod').value || null },
-      (r) => `«${r.query}»: ${r.videos_stored ?? 0} видео, потрачен ${r.quota.search_calls} поиск`);
+      (r) => `«${r.query}»: ${r.videos_stored ?? 0} videos, ${r.quota.search_calls} search spent`);
   });
 }
 
-/* Общие тайлы + графики для нишевого обзора -- используется и по слагу
-   (viewNiche), и от канала (niche_overview_from_channel в viewChannel).
-   `head` -- готовый sectionHead(...) для верхней карточки. */
+/* Shared tiles + charts for the niche overview -- used both by slug
+   (viewNiche) and from a channel (niche_overview_from_channel in viewChannel).
+   `head` -- a ready-made sectionHead(...) for the top card. */
 function nicheOverviewBlock(d, head) {
   return `
     <div class="card">
       ${head}
       <div class="tiles">
-        ${tile('Видео', num(d.video_count))}
-        ${tile('Каналов', num(d.channel_count))}
-        ${tile('Медиана множителя', mult(d.median_outlier_score))}
-        ${tile('Медиана просмотров', compact(d.median_views_per_video))}
-        ${tile('Viral skew', d.viral_skew ?? '—', 'среднее / медиана')}
+        ${tile('Videos', num(d.video_count))}
+        ${tile('Channels', num(d.channel_count))}
+        ${tile('Median multiplier', mult(d.median_outlier_score))}
+        ${tile('Median views', compact(d.median_views_per_video))}
+        ${tile('Viral skew', d.viral_skew ?? '—', 'mean / median')}
         ${tile('Shorts', `${d.shorts_share_percent}%`)}
-        ${tile('Пробитий у мелких', num(d.small_channel_breakouts), '≤10k подп., VSR ≥ 5')}
+        ${tile('Small-channel breakouts', num(d.small_channel_breakouts), '≤10k subs, VSR ≥ 5')}
       </div>
     </div>
     ${saturationBlock(d.saturation_v2)}
     <div class="grid-2">
       <div class="card">
-        ${sectionHead('Каналы по размеру', SATURATION[d.saturation_hint] || d.saturation_hint)}
+        ${sectionHead('Channels by size', SATURATION[d.saturation_hint] || d.saturation_hint)}
         ${barList(Object.entries(d.channel_size_distribution).map(([k, v]) => ({ name: k, value: v, display: num(v) })))}
       </div>
       <div class="card">
-        ${sectionHead('Топ по множителю')}
+        ${sectionHead('Top by multiplier')}
         ${table([
-          { label: 'Видео', wrap: true, render: (r) => esc(r.title) },
-          { label: 'Просмотры', num: true, render: (r) => compact(r.views) },
-          { label: 'Множитель', num: true, render: (r) => mult(r.outlierScore) },
+          { label: 'Video', wrap: true, render: (r) => esc(r.title) },
+          { label: 'Views', num: true, render: (r) => compact(r.views) },
+          { label: 'Multiplier', num: true, render: (r) => mult(r.outlierScore) },
           { label: 'VSR', num: true, render: (r) => (+r.viewsPerSubscriber).toFixed(1) },
         ], d.top_videos_by_outlier_score)}
       </div>
@@ -126,12 +126,12 @@ async function loadFootStat() {
     const sq = h.searchQuota;
     const uq = h.unitQuota;
     $('#footStat').innerHTML =
-      `${num(h.db.channels)} каналов · ${num(h.db.videos)} видео<br>` +
-      (h.historyAvailable ? 'история пишется' : 'истории нет — запустите воркер') +
-      (sq ? `<br>Поиск: ${sq.callsLeft}/${sq.dailyLimit} осталось сегодня` : '') +
-      (uq ? `<br>Квота API: ${num(uq.unitsLeft)}/${num(uq.dailyLimit)} units осталось` : '');
-    $('#brandTag').textContent = h.hasApiKey ? 'local' : 'без ключа';
-  } catch { $('#footStat').textContent = 'сервис недоступен'; }
+      `${num(h.db.channels)} channels · ${num(h.db.videos)} videos<br>` +
+      (h.historyAvailable ? 'history is being recorded' : 'no history — start the worker') +
+      (sq ? `<br>Search: ${sq.callsLeft}/${sq.dailyLimit} left today` : '') +
+      (uq ? `<br>API quota: ${num(uq.unitsLeft)}/${num(uq.dailyLimit)} units left` : '');
+    $('#brandTag').textContent = h.hasApiKey ? 'local' : 'no key';
+  } catch { $('#footStat').textContent = 'service unavailable'; }
 }
 
 export { view, plabel, base, collectForm, wireCollect, loadFootStat, nicheOverviewBlock, render, setRender };

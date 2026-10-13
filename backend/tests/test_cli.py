@@ -252,29 +252,29 @@ def healthy(monkeypatch, stub):
 
 def test_doctor_all_good(run, healthy):
     code, out, _ = run("doctor")
-    assert code == 0 and "Всё в порядке." in out
+    assert code == 0 and "All good." in out
     assert healthy["categories"].calls[0] == ((GOOD_KEY,), {"region_code": "US"})
-    assert "потрачен 1 unit" in out
+    assert "1 unit spent" in out
 
 
 def test_doctor_without_a_key_skips_the_network_check(run, healthy):
     code, out, _ = run("doctor", key="")
     assert code == 1
-    assert "Впишите YOUTUBE_API_KEY" in out and "пропущено (нет ключа)" in out
+    assert "Put YOUTUBE_API_KEY" in out and "skipped (no key)" in out
     assert healthy["categories"].calls == []
 
 
 def test_doctor_flags_a_truncated_key(run, healthy):
     code, out, _ = run("doctor", key="AIzaSHORT")
-    assert code == 1 and "скопирован не полностью" in out
+    assert code == 1 and "not copied in full" in out
 
 
 @pytest.mark.parametrize("error,advice", [
-    ("accessNotConfigured: YouTube Data API v3 has not been used", "не включён YouTube Data"),
-    ("API key not valid. Please pass a valid API key.", "Ключ недействителен"),
-    ("ipRefererBlocked", "ограничение по HTTP referrer"),
-    ("quotaExceeded: The request cannot be completed", "Квота на сегодня исчерпана"),
-    ("Connection refused", "Сеть до googleapis.com"),
+    ("accessNotConfigured: YouTube Data API v3 has not been used", "is not enabled in this Google Cloud"),
+    ("API key not valid. Please pass a valid API key.", "The key is invalid"),
+    ("ipRefererBlocked", "HTTP referrer / IP restriction"),
+    ("quotaExceeded: The request cannot be completed", "Today's quota is exhausted"),
+    ("Connection refused", "The network to googleapis.com"),
 ])
 def test_doctor_maps_api_errors_to_advice(run, healthy, stub, error, advice):
     stub(yt, "video_categories", raises=RuntimeError(error))
@@ -290,8 +290,8 @@ def test_doctor_never_prints_the_key_from_an_error(run, healthy, stub):
 
 
 @pytest.mark.parametrize("stats,advice", [
-    ({"videos": 0}, "База пустая"),
-    ({"history_since": None}, "Истории нет"),
+    ({"videos": 0}, "The database is empty"),
+    ({"history_since": None}, "There is no history"),
 ])
 def test_doctor_flags_an_empty_or_unwatched_database(run, healthy, stats, advice):
     healthy["stats"].result.update(stats)
@@ -304,20 +304,20 @@ def test_doctor_reports_a_database_that_will_not_open(run, healthy, monkeypatch)
         raise RuntimeError("connection refused on 5433")
     monkeypatch.setattr(cli.db, "init_db", boom)
     code, out, _ = run("doctor")
-    assert code == 1 and "База не открывается: connection refused on 5433" in out
+    assert code == 1 and "The database does not open: connection refused on 5433" in out
 
 
 def test_doctor_coverage_failure_is_shown_but_not_a_problem(run, healthy, stub):
     stub(discovery, "coverage", raises=RuntimeError("no rows"))
     code, out, _ = run("doctor")
-    assert code == 0 and "ОШИБКА: no rows" in out
+    assert code == 0 and "ERROR: no rows" in out
 
 
 def test_doctor_openrouter_without_a_key(run, healthy, monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "openrouter")
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     code, out, _ = run("doctor")
-    assert code == 1 and "OPENROUTER_API_KEY не задан" in out
+    assert code == 1 and "OPENROUTER_API_KEY is not set" in out
 
 
 def test_doctor_openrouter_ping_only_with_the_llm_flag(run, healthy, monkeypatch, stub):
@@ -325,9 +325,9 @@ def test_doctor_openrouter_ping_only_with_the_llm_flag(run, healthy, monkeypatch
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
     ping = stub(llm_gateway, "run", result={"ok": True})
     code, out, _ = run("doctor")
-    assert code == 0 and "пинг пропущен" in out and ping.calls == []
+    assert code == 0 and "ping skipped" in out and ping.calls == []
     code, out, _ = run("doctor", "--llm")
-    assert code == 0 and "провайдер ответил" in out and len(ping.calls) == 1
+    assert code == 0 and "the provider responded" in out and len(ping.calls) == 1
 
 
 def test_doctor_failed_llm_ping_is_a_problem(run, healthy, monkeypatch, stub):
@@ -335,13 +335,13 @@ def test_doctor_failed_llm_ping_is_a_problem(run, healthy, monkeypatch, stub):
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
     stub(llm_gateway, "run", result={"ok": False})
     code, out, _ = run("doctor", "--llm")
-    assert code == 1 and "Пинг LLM-провайдера не удался" in out
+    assert code == 1 and "The LLM provider ping failed" in out
 
 
 @pytest.mark.parametrize("available,flag,expect_code,expect_text", [
-    ((False, "server not reachable"), [], 1, "запустите `ollama serve`"),
-    ((True, "model pulled"), [], 0, "пинг пропущен (передайте --llm)"),
-    ((True, "model pulled"), ["--llm"], 0, "провайдер ответил"),
+    ((False, "server not reachable"), [], 1, "run `ollama serve`"),
+    ((True, "model pulled"), [], 0, "ping skipped (pass --llm)"),
+    ((True, "model pulled"), ["--llm"], 0, "the provider responded"),
 ])
 def test_doctor_ollama(run, healthy, monkeypatch, stub, available, flag,
                        expect_code, expect_text):

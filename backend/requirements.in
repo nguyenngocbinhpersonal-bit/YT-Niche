@@ -15,7 +15,7 @@ pillow>=10
 # already pulled in transitively by the MCP SDK, pinned here since we call it directly
 cryptography>=42
 
-# HTTP API + дашборд (backend/api.py, frontend/)
+# HTTP API + dashboard (backend/api.py, frontend/)
 fastapi>=0.115
 uvicorn[standard]>=0.30
 # OpenRouter LLM provider (infrastructure/llm/openrouter.py) -- already pulled in

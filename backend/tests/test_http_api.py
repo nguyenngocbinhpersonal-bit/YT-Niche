@@ -20,8 +20,8 @@ import infrastructure.postgres as db  # noqa: E402
 import infrastructure.youtube.client as yt  # noqa: E402
 import interfaces.http.api as api  # noqa: E402
 
-# X-NF-Client -- как у настоящих клиентов: без него local_only_guard отвечает 403
-# на POST/DELETE без JSON-тела (сама защита -- в test_http_guard.py).
+# X-NF-Client -- as with real clients: without it local_only_guard answers 403
+# to a POST/DELETE without a JSON body (the guard itself is in test_http_guard.py).
 client = TestClient(api.app, headers={"X-NF-Client": "tests"})
 
 

@@ -249,7 +249,7 @@ def test_display_model_flags_missing_ollama_model(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "ollama")
     monkeypatch.delenv("OLLAMA_MODEL", raising=False)
 
-    assert "не задан" in llm_factory.display_model()
+    assert "is not set" in llm_factory.display_model()
 
 
 if __name__ == "__main__":

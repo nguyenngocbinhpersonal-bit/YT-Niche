@@ -355,17 +355,17 @@ def _funnel_hint(funnel, period, period_by):
     if funnel[-1][1] > 0:
         return None
     if funnel[0][1] == 0:
-        return (f"Ни одного видео в окне {period} по '{period_by}'. Соберите больше "
-                f"(collect_channel дешевле всего), возьмите период шире, или "
-                f"period_by='discovered', если видео старые, а в базу попали недавно.")
+        return (f"No videos in the {period} window by '{period_by}'. Collect more "
+                f"(collect_channel is the cheapest), take a wider period, or "
+                f"period_by='discovered' if the videos are old but entered the database recently.")
     # first step that reached zero
     for i, (name, n, param) in enumerate(funnel):
         if n == 0:
             before = funnel[i - 1][1]
-            return (f"Фильтр '{name}' отсёк все {before} видео. Понизьте {param} "
-                    f"или уберите его (0 / None).")
+            return (f"The filter '{name}' cut off all {before} videos. Lower {param} "
+                    f"or remove it (0 / None).")
     survivors = funnel[-1]
-    return f"Осталось 0 после '{survivors[0]}'."
+    return f"0 left after '{survivors[0]}'."
 
 
 def _video_out(r):
@@ -499,12 +499,12 @@ def most_popular_categories(period="7d", period_by="published", niche=None, regi
 
     hint = None
     if not items:
-        hint = (f"Ни одной категории с >= {min_videos} видео в окне {period}. "
-                f"В окне всего {len(rows)} видео — соберите больше, возьмите период "
-                f"шире, понизьте min_videos, или period_by='discovered'."
+        hint = (f"No category with >= {min_videos} videos in the {period} window. "
+                f"The window has only {len(rows)} videos — collect more, take a wider "
+                f"period, lower min_videos, or use period_by='discovered'."
                 if rows else
-                f"В окне {period} по '{period_by}' нет видео вообще — сначала соберите "
-                f"корпус (collect_channel / collect_niche).")
+                f"There are no videos at all in the {period} window by '{period_by}' — first collect "
+                f"a corpus (collect_channel / collect_niche).")
 
     return {
         "period": period,
@@ -611,10 +611,10 @@ def trending_keywords(period="7d", period_by="published", niche=None, region=Non
     tagged = sum(1 for r in rows if r["tags"] and r["tags"] not in ("[]", "null"))
     hint = None
     if not ranked:
-        hint = (f"Ни одной фразы, встречающейся в >= {min_videos} видео. В окне "
-                f"{total} видео — понизьте min_videos (до 2 или 1), возьмите период "
-                f"шире, или соберите больше." if total else
-                f"В окне {period} по '{period_by}' нет видео — сначала соберите корпус.")
+        hint = (f"No phrase occurring in >= {min_videos} videos. The window has "
+                f"{total} videos — lower min_videos (to 2 or 1), take a wider "
+                f"period, or collect more." if total else
+                f"There are no videos in the {period} window by '{period_by}' — collect a corpus first.")
 
     return {
         "period": period,
@@ -688,10 +688,10 @@ def top_tags_by_category(period="7d", period_by="published", niche=None, region=
         "topN": top_n,
         "quotaUsed": 0,
         "hint": None if categories else (
-            f"Ни одного тега, встречающегося в >= {min_videos} видео ни в одной "
-            f"категории. Понизьте min_videos или возьмите период шире."
+            f"No tag occurring in >= {min_videos} videos in any "
+            f"category. Lower min_videos or take a wider period."
             if rows else
-            f"В окне {period} по '{period_by}' нет видео — сначала соберите корпус."),
+            f"There are no videos in the {period} window by '{period_by}' — collect a corpus first."),
         "categories": categories,
     }
 

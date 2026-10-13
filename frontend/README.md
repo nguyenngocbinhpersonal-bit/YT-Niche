@@ -58,7 +58,7 @@ the sections below follow the sidebar order.
 ### Overview
 
 Everything at once, in one call to `/api/overview`: outlier channels,
-upcoming competition, categories, keywords, viral videos. On top, "За сутки"
+upcoming competition, categories, keywords, viral videos. On top, "Last 24 hours"
 (`/api/digest`) — the last 24 hours as the morning digest would send them:
 new outliers, accelerating videos, rising channels, repackaging, gone items.
 
@@ -132,10 +132,10 @@ The alert events of your watchlist (`/api/events`) — the same ones Telegram
 or a webhook gets: outliers, acceleration, title changes, a channel breaking
 its silence, a channel or video that disappeared, a subscriber milestone, and
 a match on one of your topics. Filter by type or "only new", and mark
-everything read. Below, "Мои темы" (`/api/topics`): name a topic in plain
+everything read. Below, "My topics" (`/api/topics`): name a topic in plain
 words with a similarity threshold, pause or remove it; a new video close to it
-raises a "Тема" alert that only you see. Zero quota; ticking "На YouTube"
-(or "Искать на YouTube" on a topic) also searches all of YouTube for it once
+raises a "Topic" alert that only you see. Zero quota; ticking "On YouTube"
+(or "Search YouTube" on a topic) also searches all of YouTube for it once
 a day -- one of the installation's 100 search calls a day, at most 5 topics.
 
 ### Idea checker (`#/ideas`)
@@ -150,32 +150,32 @@ can be exported to CSV client-side.
 
 Drafts by release day (`GET /api/calendar`), a week or a month at a time,
 in the browser's time zone (stored as UTC). Drag a draft -- from the grid or
-from "Без даты" -- onto a day to plan it (`POST /api/drafts/{id}/plan`; the
+from "No date" -- onto a day to plan it (`POST /api/drafts/{id}/plan`; the
 time of day is kept, a new draft gets 12:00); click it to set the exact time
 or take it off. The editor shows the best publishing hours of the draft's
-niche (UTC) and whether the time is one of them. States: запланировано,
-просрочено, вышло (linked to a video on "Разбор метаданных"). Reminders come
+niche (UTC) and whether the time is one of them. States: planned,
+overdue, published (linked to a video on "Metadata review"). Reminders come
 to Telegram and the digest the day before and when it is due.
 
-### Collaboration partners (channel screen, "Мои каналы")
+### Collaboration partners (channel screen, "My channels")
 
-A "Партнёры для коллабораций" card on the channel screen and on "Мои каналы"
+A "Collaboration partners" card on the channel screen and on "My channels"
 (pick one of your channels; `GET /api/channels/{id}/collabs`): similar
 channels between ×0.5 and ×2 of its subscribers, with an upload in the last
 30 days and no high template risk -- subscribers and size ratio, similarity,
-last upload, 30-day growth, a link to YouTube and "В трекер". Under the table:
+last upload, 30-day growth, a link to YouTube and "Track". Under the table:
 how many of the 200 most similar channels were dropped and why. Only
 collected channels; YouTube gives no contacts.
 
-### Net profit (channel and niche screens, cost profiles on "Данные")
+### Net profit (channel and niche screens, cost profiles on "Data")
 
-A "Чистая прибыль" card on the channel screen (a month) and the niche screen
+A "Net profit" card on the channel screen (a month) and the niche screen
 (its typical video and a month of them; `GET /api/profit`): revenue, costs and
-profit as low ... high ranges, a verdict chip (в плюсе / в минусе / не ясно) and,
+profit as low ... high ranges, a verdict chip (profitable / loss-making / unclear) and,
 for a niche, the views a video needs to pay for itself. Pick a cost profile
 and, optionally, the videos per month. A channel below the full YPP tier gets
 a warning that ad revenue may still be zero. Cost profiles are edited on the
-"Данные" screen (`/api/cost-profiles`): price per video, per minute of video,
+"Data" screen (`/api/cost-profiles`): price per video, per minute of video,
 monthly overhead; they are personal.
 
 ### What outliers share (niche screen, brief)
@@ -184,18 +184,18 @@ A card on the niche screen (`GET /api/niches/{slug}/outlier-traits`, loaded
 apart so the screen does not wait): long videos and Shorts separately, the
 features where the niche's outliers differ from its ordinary videos -- "number
 in the title: 61% against 18% (+43 points)", "median length ×0.4" -- each with
-both sample sizes, the rest folded under "Без заметной разницы". A group under
-10 videos says "мало данных"; a warning appears when over half of the outliers
+both sample sizes, the rest folded under "No notable difference". A group under
+10 videos says "not enough data"; a warning appears when over half of the outliers
 are one channel's. The same card, for the source video's format, sits in the
 brief. Correlation, not cause.
 
 ### Where to enter (`#/enter`)
 
 Every niche in one table (`GET /api/niches/ranking`, cached for an hour,
-"Пересчитать" forces it): a 0-100 score, the trend chip and the six terms it
+"Recalculate" forces it): a 0-100 score, the trend chip and the six terms it
 is made of -- each cell shows the points and the raw value, a click on a column
-header sorts by it. A niche too small to judge (trend "мало данных") shows
-"без балла" instead of a low number. Tick 2-3 niches and "Сравнить выбранные"
+header sorts by it. A niche too small to judge (trend "not enough data") shows
+"no score" instead of a low number. Tick 2-3 niches and "Compare selected"
 (`GET /api/niches/compare`) puts all their numbers side by side. Weights are
 a judgement and RPM a guess; the screen says so.
 
@@ -203,21 +203,21 @@ a judgement and RPM a guess; the screen says so.
 
 Pick a pair of languages (source -> target; the list shows how many videos each
 has, ⇄ swaps them) and the dashboard shows the source language's outliers with
-a verdict on the target one (`GET /api/language-gaps`): *не снято* (nothing
-similar), *снимали слабо* (similar videos, none an outlier), *уже есть хит*.
+a verdict on the target one (`GET /api/language-gaps`): *not made* (nothing
+similar), *made weakly* (similar videos, none an outlier), *already a hit*.
 Each row has the multiplier, how many other channels repeated the format at
 home and the closest target-language videos (or how close the nearest one is
 when it is under the threshold). The header says how many videos the target
-language has in the database; under 200 a warning explains that "не снято"
-may mean "не собрано". The niche selector narrows the source side only.
+language has in the database; under 200 a warning explains that "not made"
+may mean "not collected". The niche selector narrows the source side only.
 Zero quota.
 
 ### Transcripts (`#/transcripts`)
 
-A ready transcript has a "Крючок" button: the first ~30 seconds scored 0-100 by text rules
+A ready transcript has a "Hook" button: the first ~30 seconds scored 0-100 by text rules
 (question, number, promise, intrigue, "you", first sentence, pace, minus filler), with an
 opt-in LLM review checkbox; above the queue, a niche benchmark of outliers' vs ordinary
-hooks ("мало данных: N из 10" until there are enough transcripts). The rendering is shared
+hooks ("not enough data: N of 10" until there are enough transcripts). The rendering is shared
 with the title screen in `hook_view.js`.
 
 Transcripts are never downloaded automatically — this screen is the manual
@@ -239,7 +239,7 @@ k-means and names clusters via the LLM (tags-based fallback without one).
 
 ### Title check (`#/titles`)
 
-A second card, "Проверить вступление": paste your intro (the first 20-30 seconds of a
+A second card, "Check the intro": paste your intro (the first 20-30 seconds of a
 script), get the score, penalties and tips (`POST /api/hooks/score`); the text is never
 stored or sent to an LLM, and the niche comparison uses the global filter.
 
@@ -267,7 +267,7 @@ tracked channels only, so their history starts when a channel is tracked.
 
 ### Sponsors (cards on `#/niche/<slug>` and `#/channel/<id>`)
 
-"Спонсоры ниши" (`/api/niches/{slug}/sponsors`) and "Спонсоры канала"
+"Niche sponsors" (`/api/niches/{slug}/sponsors`) and "Channel sponsors"
 (`/api/channels/{id}/sponsors`): the share of videos with a named sponsor or
 promo code, top brands, affiliate links listed apart, and average views with
 and without a sponsor. Always labelled a lower bound: only what is written in
@@ -276,27 +276,27 @@ scanned, and the card says how many that is.
 
 ### Brief (`#/brief/<videoId>`)
 
-Opened from the "бриф" link on any video card (or the extension's "Бриф"
+Opened from the "brief" link on any video card (or the extension's "Brief"
 button). Builds a brief for your own video from one outlier
 (`POST /api/briefs`): the source's numbers, its hook from a pasted transcript,
 niche title patterns and best time, whether the topic is already covered
 (without the source itself), title candidates and similar videos as thumbnail
-references, and a "Формат повторяем?" card (`/api/videos/{id}/repeatability`):
+references, and a "Is the format repeated?" card (`/api/videos/{id}/repeatability`):
 whether similar videos of other channels became outliers too, or this looks
-like one channel's luck. It opens as a free preview without an LLM; "Добавить LLM-разбор"
-adds the angle and title candidates, "Сохранить в черновики" stores it as a
+like one channel's luck. It opens as a free preview without an LLM; "Add LLM analysis"
+adds the angle and title candidates, "Save to drafts" stores it as a
 draft linked to the source and queues a missing transcript. Parts that could
 not be built are listed with the reason instead of being faked.
 
 ### Compare trajectories (`#/compare/<id,id>`)
 
-Opened from the "сравнить" link on any video card or the brief's "Сравнить с
-другими". Up to five videos on one chart of views by age (hours since
+Opened from the "compare" link on any video card or the brief's "Compare with
+others". Up to five videos on one chart of views by age (hours since
 publishing, not dates), from the worker's snapshots
 (`/api/videos/trajectory`); a dashed line of the same colour is what a usual
 video of that channel would have at that age (median views x maturity curve,
 an estimate). Title and thumbnail swaps are marked on the curve. The basket
-is kept in the browser; remove a video with "Убрать". The brief shows the
+is kept in the browser; remove a video with "Remove". The brief shows the
 source video's own curve the same way. Zero quota.
 
 ### Metadata review (`#/metadata`)
@@ -340,7 +340,7 @@ A "template risk" card (`/api/channels/{id}/template-risk`) scores how much the 
 uploads look like one template repeated, with the reasons; a heuristic, not YouTube's
 verdict. A channel the API stopped returning (confirmed after two misses 6+ hours
 apart) gets a red note at the top: it was deleted, hidden or banned, and the numbers
-are the last ones seen. A "Сигналы по правилам монетизации" card
+are the last ones seen. A "Monetization-policy signals" card
 (`/api/channels/{id}/policy-signals`, loaded after the screen) shows the three
 "inauthentic content" categories of YouTube's monetization policies with a
 level, the reasons and the policy text -- signals from public data, not
@@ -364,7 +364,7 @@ through Google OAuth with your own client (read-only scopes). Until
 the screen shows the one-time setup steps (`/api/own/status`). Once connected:
 views, revenue, RPM and median retention for the last 28 days (ending three
 days ago — Analytics lags), your real RPM against niche-finder's estimate for
-the niche (`/api/own/rpm-calibration`), a "Форматы" card
+the niche (`/api/own/rpm-calibration`), a "Formats" card
 (`/api/own/channels/{id}/formats`: Shorts against long videos -- share of
 views, subscribers per 1,000 views, whether their weekly views move together
 -- and long + live watch hours in 365 days toward the YPP bar with an
@@ -380,7 +380,7 @@ stored encrypted and never reaches the browser.
 
 Key, database, and history state (how many channels/videos/snapshots have
 been collected), plus the same collection forms and a manual stats refresh.
-A "Хранение данных" card (`/api/freshness`) shows how many videos and channels were not
+A "Data retention" card (`/api/freshness`) shows how many videos and channels were not
 refreshed for 25 days, since when the history goes back, and that the worker
 re-reads the oldest rows daily and never deletes anything.
 
@@ -389,7 +389,7 @@ re-reads the oldest rows daily and never deletes anything.
 ### Help and FAQ (`#/help`)
 
 What the project is, how the dashboard and MCP server share one database
-and one set of formulas, and a FAQ. At the bottom, "Откуда каждое число"
+and one set of formulas, and a FAQ. At the bottom, "Where each number comes from"
 (`/api/scores`): every number on the screens, whether it is YouTube data or an
 estimate of niche-finder, how it is computed and from what sample -- the same
 catalog the "?" marks next to scores show on hover.

@@ -1,12 +1,12 @@
-/* Экран дашборда. Роутинг -- router.js, общее -- shared.js, компоненты -- ui.js. */
+/* Dashboard screen. Routing -- router.js, shared code -- shared.js, components -- ui.js. */
 import { $, api, q, num, compact, ago, esc, toast, sectionHead, empty, table, aiLabelsBadge } from '../ui.js';
 import { view, collectForm, wireCollect, render } from '../shared.js';
 
-/* ----------------------------------------------------------------- Трекер */
+/* ----------------------------------------------------------------- Tracker */
 
-/* faceless/format/topic (этап 03) живут только в памяти вкладки -- фильтр
-   по AI-разметке не настолько важен, чтобы переживать перезагрузку, в
-   отличие от state.period/niche. */
+/* faceless/format/topic (stage 03) live only in the tab's memory -- the filter
+   by AI labels is not important enough to survive a reload, unlike
+   state.period/niche. */
 let channelFilters = { faceless: '', format: '', topic: '' };
 
 async function viewTracker() {
@@ -16,24 +16,24 @@ async function viewTracker() {
   })}`);
   view.innerHTML = `
     <div class="card">
-      ${sectionHead('Трекер каналов', 'воркер снимает статистику по этим каналам и копит историю', `
+      ${sectionHead('Channel tracker', 'the worker captures stats for these channels and accumulates history', `
         <select id="filterFaceless">
-          <option value="" ${f.faceless === '' ? 'selected' : ''}>faceless: любой</option>
-          <option value="true" ${f.faceless === 'true' ? 'selected' : ''}>faceless: да</option>
-          <option value="false" ${f.faceless === 'false' ? 'selected' : ''}>faceless: нет</option>
+          <option value="" ${f.faceless === '' ? 'selected' : ''}>faceless: any</option>
+          <option value="true" ${f.faceless === 'true' ? 'selected' : ''}>faceless: yes</option>
+          <option value="false" ${f.faceless === 'false' ? 'selected' : ''}>faceless: no</option>
         </select>
-        <input type="text" id="filterFormat" placeholder="формат" value="${esc(f.format)}" style="width:120px">
-        <input type="text" id="filterTopic" placeholder="тема" value="${esc(f.topic)}" style="width:120px">`)}
+        <input type="text" id="filterFormat" placeholder="format" value="${esc(f.format)}" style="width:120px">
+        <input type="text" id="filterTopic" placeholder="topic" value="${esc(f.topic)}" style="width:120px">`)}
       ${d.channels.length ? table([
-        { label: 'Канал', render: (r) => `<a href="#/channel/${esc(r.channel_id)}">${esc(r.title || r.channel_id)}</a>` },
+        { label: 'Channel', render: (r) => `<a href="#/channel/${esc(r.channel_id)}">${esc(r.title || r.channel_id)}</a>` },
         { label: 'AI', render: (r) => aiLabelsBadge(r.aiLabels) || '—' },
-        { label: 'Подписчиков', num: true, render: (r) => compact(r.subscriber_count) },
-        { label: 'Видео', num: true, render: (r) => num(r.video_count) },
-        { label: 'Просмотров', num: true, render: (r) => compact(r.view_count) },
-        { label: 'Снимков', num: true, render: (r) => num(r.snapshots) },
-        { label: 'Обновлён', render: (r) => ago(r.last_refreshed_at) },
-        { label: '', render: (r) => `<button class="btn btn-ghost btn-sm untrack" data-id="${esc(r.channel_id)}">убрать</button>` },
-      ], d.channels) : empty('пока никого — добавьте канал ниже, или фильтр по AI-разметке ничего не нашёл')}
+        { label: 'Subscribers', num: true, render: (r) => compact(r.subscriber_count) },
+        { label: 'Videos', num: true, render: (r) => num(r.video_count) },
+        { label: 'Views', num: true, render: (r) => compact(r.view_count) },
+        { label: 'Snapshots', num: true, render: (r) => num(r.snapshots) },
+        { label: 'Updated', render: (r) => ago(r.last_refreshed_at) },
+        { label: '', render: (r) => `<button class="btn btn-ghost btn-sm untrack" data-id="${esc(r.channel_id)}">remove</button>` },
+      ], d.channels) : empty('nobody yet — add a channel below, or the AI-label filter found nothing')}
     </div>
     ${collectForm()}`;
   wireCollect(render);
@@ -51,7 +51,7 @@ async function viewTracker() {
   view.querySelectorAll('.untrack').forEach((b) => b.addEventListener('click', async () => {
     try {
       await api(`/api/channels/tracked/${b.dataset.id}`, { method: 'DELETE' });
-      toast('Убрал из трекера', 'ok'); render();
+      toast('Removed from the tracker', 'ok'); render();
     } catch (e) { toast(e.message, 'err'); }
   }));
 }

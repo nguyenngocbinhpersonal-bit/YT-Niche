@@ -1,4 +1,4 @@
-"""Time-window parsing shared by every 'за последние 24 часа / 7 дней' feature."""
+"""Time-window parsing shared by every "last 24 hours / 7 days" feature."""
 import re
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo

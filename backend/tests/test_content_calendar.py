@@ -143,11 +143,11 @@ def test_a_reminder_reads_well_in_telegram_and_in_the_digest():
     CAL.remind_due(now=NOW)
     ev = _events()[0]
     text = AL._format_message({"kind": "draft_due", "payload": json.loads(ev["payload"])})
-    assert "Черновик" in text and "Launch &lt;video&gt;" in text and "ближайшие сутки" in text
+    assert "Draft" in text and "Launch &lt;video&gt;" in text and "next day" in text
     assert "#/calendar" in text
     dg = DG.build_digest(period="24h")
     assert dg["drafts"]["total"] == 1 and not dg["empty"]
-    assert "Календарь" in DG.format_digest(dg)
+    assert "Calendar" in DG.format_digest(dg)
 
 
 def test_http_and_mcp_doors():

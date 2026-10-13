@@ -100,7 +100,7 @@ def test_build_groups_the_last_day_by_kind_and_ranks_by_strength(monkeypatch):
     assert d["risingChannels"]["items"][0]["channelTitle"] == "Rising"
     assert d["risingChannels"]["total"] == 7               # all matched, not just shown
     assert d["empty"] is False
-    assert "36.8M подп." in digest.format_digest(d)
+    assert "36.8M subs" in digest.format_digest(d)
 
 
 def test_topic_matches_and_milestones_reach_the_digest():
@@ -117,7 +117,7 @@ def test_topic_matches_and_milestones_reach_the_digest():
     d = digest.build_digest()
     assert d["topics"]["total"] == 1 and d["milestones"]["total"] == 1 and d["empty"] is False
     text = digest.format_digest(d)
-    assert "Ваши темы" in text and "«ai tools»: New AI agent" in text and "Рубежи" in text
+    assert "Your topics" in text and "“ai tools”: New AI agent" in text and "Milestones" in text
 
 
 def test_repackaging_section_is_per_user_only_in_multi_user_mode(monkeypatch):
@@ -143,7 +143,7 @@ def test_format_stays_under_telegram_limit_and_escapes_html(monkeypatch):
     text = digest.format_digest(digest.build_digest(top_n=50))
     assert len(text) <= digest.TELEGRAM_LIMIT
     assert "&lt;b&gt;" in text and "<b>очень" not in text
-    assert "ещё" in text                                    # the rest is summarised
+    assert "more" in text                                    # the rest is summarised
 
 
 # ------------------------------------------------------------ sending

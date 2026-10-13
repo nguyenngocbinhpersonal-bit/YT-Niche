@@ -1,8 +1,8 @@
-/* Экран дашборда. Роутинг -- router.js, общее -- shared.js, компоненты -- ui.js. */
+/* Dashboard screen. Routing -- router.js, shared code -- shared.js, components -- ui.js. */
 import { $, api, q, sectionHead, empty, channelRow, state, yppSelect } from '../ui.js';
 import { view, plabel, base, render } from '../shared.js';
 
-/* --------------------------------------------------------- Outlier-каналы */
+/* --------------------------------------------------------- Outlier channels */
 
 async function viewChannels() {
   const p = Object.assign(
@@ -15,25 +15,25 @@ async function viewChannels() {
   })}`);
   view.innerHTML = `
     <div class="card">
-      ${sectionHead('Outlier-каналы', `${plabel(state.period)} · по попаданию в базу — свежие возможности`)}
+      ${sectionHead('Outlier channels', `${plabel(state.period)} · by database entry date — fresh opportunities`)}
       <div class="form-row">
-        <label class="field"><span class="field-label">Множитель не меньше</span>
+        <label class="field"><span class="field-label">Multiplier at least</span>
           <input type="number" id="fcMult" value="${p.min_multiplier}" step="0.5"></label>
-        <label class="field"><span class="field-label">Подписчиков не меньше</span>
+        <label class="field"><span class="field-label">Subscribers at least</span>
           <input type="number" id="fcMinSubs" value="${p.min_subscribers}" step="1000"></label>
-        <label class="field"><span class="field-label">Подписчиков не больше</span>
+        <label class="field"><span class="field-label">Subscribers at most</span>
           <input type="number" id="fcMaxSubs" value="${p.max_subscribers}" step="1000"></label>
         ${yppSelect('fcYpp', p.min_ypp_status)}
-        <button class="btn" id="applyChannels" type="button">Применить</button>
+        <button class="btn" id="applyChannels" type="button">Apply</button>
       </div>
-      <div class="section-sub" style="margin-top:10px">Множитель — лучший возрастно-нормированный outlier среди
-        видео канала в окне, против медианы предыдущих загрузок этого же канала.
-        Полоса: &lt;2x, 2–3x, 3–5x, 5–10x, &gt;10x. Отсортировано по силе множителя;
-        сузьте окно периода вверху, чтобы увидеть только самые свежие открытия.</div>
+      <div class="section-sub" style="margin-top:10px">The multiplier is the best age-normalised outlier among
+        the channel's videos in the window, against the median of the same channel's previous uploads.
+        Band: &lt;2x, 2–3x, 3–5x, 5–10x, &gt;10x. Sorted by multiplier strength;
+        narrow the period window at the top to see only the freshest discoveries.</div>
     </div>
     <div class="card">
       ${d.channels.length ? `<div class="rows">${d.channels.map(channelRow).join('')}</div>`
-                          : empty(d.hint || 'нет каналов над порогом')}
+                          : empty(d.hint || 'no channels above the threshold')}
     </div>`;
 
   $('#applyChannels').addEventListener('click', () => {

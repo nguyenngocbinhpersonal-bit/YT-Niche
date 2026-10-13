@@ -296,16 +296,16 @@ def check_ideas(ideas: list, niche: str = None, min_similarity: float = 0.55,
     return {
         "niche": niche, "ideaCount": len(ideas), "semanticSearchAvailable": semantic_available,
         "hint": None if semantic_available else
-            "эмбеддинги недоступны в этом прогоне -- совпадения только по вхождению фразы "
-            "в название, точность ниже, чем с семантическим поиском",
+            "embeddings are unavailable in this run -- matches only by the phrase occurring "
+            "in a title, accuracy is lower than with semantic search",
         "rules": {
-            "free": "совпадений не найдено",
-            "recent": f"последнее совпадение младше {recent_days} дней -- пропустить, недавно снимали",
-            "proven": f"совпадения старше {recent_days} дней, лучший outlier >= {proven_outlier} "
-                     "-- спрос доказан",
-            "flopped": f"совпадения старше {recent_days} дней и лучший outlier < {proven_outlier} "
-                      f"(включая {flop_outlier}-{proven_outlier} -- сигнал слабый, не считаем "
-                      "доказанным без явного провала)",
+            "free": "no matches found",
+            "recent": f"the latest match is younger than {recent_days} days -- skip, filmed recently",
+            "proven": f"matches older than {recent_days} days, best outlier >= {proven_outlier} "
+                     "-- demand proven",
+            "flopped": f"matches older than {recent_days} days and best outlier < {proven_outlier} "
+                      f"(including {flop_outlier}-{proven_outlier} -- a weak signal, we do not count it "
+                      "as proven without an explicit flop)",
         },
         "ideas": out_ideas,
     }
