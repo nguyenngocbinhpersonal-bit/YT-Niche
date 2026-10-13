@@ -140,8 +140,8 @@ async def rate_limit(request, call_next):
 #
 # NF_MULTI_USER=1: without a live session /api answers 401. A session is a random
 # token in the nf_session cookie (HttpOnly, SameSite=Strict); only its
-# SHA-256 is in the database. Open without sign-in: the sign-in itself and "who am I", /api/health (the container
-# healthcheck) and the return from Google OAuth (the user there is named by a one-time
+# SHA-256 is in the database. Open without sign-in: the sign-in itself and "who am I", /api/health
+# (the container healthcheck) and the return from Google OAuth (the user there is named by a one-time
 # state, and a Strict cookie does not arrive on navigation from a foreign site). The middleware
 # sits inside the Host protection: a foreign name gets 400 before 401, and the
 # 401 responses also go out with CORS headers. Without NF_MULTI_USER everything is as before:

@@ -98,10 +98,12 @@ CATALOG = {
                   "inputs": ["pasted transcript"], "minSample": None},
     "titleScore": {"name": "Title score", "source": ESTIMATE,
                    "formula": "50 ± length in range (±10), a number (+5), the niche's outlier patterns "
-                              "(up to +20), a near-duplicate of one already filmed (−30); with an LLM — its score alongside",
+                              "(up to +20), a near-duplicate of one already filmed (−30); with an LLM — its "
+                              "score alongside",
                    "inputs": ["title", "niche patterns"], "minSample": None},
     "ideaVerdict": {"name": "Idea verdict", "source": ESTIMATE,
-                    "formula": "matches of the idea in the database (meaning and occurrence in a title): none — "
+                    "formula": "matches of the idea in the database (meaning and occurrence in a title): "
+                               "none — "
                                "open; recent — filmed recently; old with outlier ≥ ×2 — demand "
                                "proven; otherwise — flopped",
                     "inputs": ["embeddings and titles of collected videos"], "minSample": None},
@@ -123,24 +125,31 @@ CATALOG = {
                       "inputs": ["embeddings", "multipliers"],
                       "minSample": f"{RP.MIN_VIDEOS} similar videos from {RP.MIN_CHANNELS}+ channels"},
     "languageGap": {"name": "Another language", "source": ESTIMATE,
-                    "formula": "outliers in the source language and the nearest videos in meaning in the target "
-                               f"(similarity ≥ {LG.MIN_SIMILARITY}): none — not made; present, but none is an "
+                    "formula": "outliers in the source language and the nearest videos in meaning in the "
+                               "target "
+                               f"(similarity ≥ {LG.MIN_SIMILARITY}): none — not made; present, but none is "
+                               f"an "
                                f"outlier ≥ ×{LG.HIT_SCORE:g} — made weakly; an outlier exists — already a "
-                               "hit. Alongside: how many other channels in the source language repeated the format",
+                               "hit. Alongside: how many other channels in the source language repeated the "
+                               "format",
                     "inputs": ["embeddings", "multipliers", "video language"],
-                    "minSample": f"{LG.THIN_CORPUS_VIDEOS}+ videos in the target language, otherwise \"not made\" "
+                    "minSample": f"{LG.THIN_CORPUS_VIDEOS}+ videos in the target language, otherwise \"not "
+                                 f"made\" "
                                  "may mean \"not collected\""},
     "profit": {"name": "Net profit", "source": ESTIMATE,
                "formula": "revenue (views / 1000 × RPM: low / mid / high) minus the profile's costs: "
                           "per video + per minute × length, for a month — plus fixed costs. "
                           "\"Profitable\" if even the lower bound is positive, \"loss-making\" if even the "
-                          "upper bound is negative, otherwise \"unclear\". AdSense only; for a connected channel — the real RPM",
+                          "upper bound is negative, otherwise \"unclear\". AdSense only; for a connected "
+                          "channel — the real RPM",
                "inputs": ["views", "category RPM or your real one", "cost profile"],
                "minSample": None},
     "outlierTraits": {"name": "What breakouts have in common", "source": ESTIMATE,
                       "formula": f"outliers (≥ ×{OTR.OUTLIER_MIN:g}) against ordinary videos "
-                                 f"(≤ ×{OTR.ORDINARY_MAX:g}) within a format (Shorts and long videos separately): "
-                                 f"the share with a trait (notable — a difference of {OTR.MIN_DIFF_PP} pp or more) or "
+                                 f"(≤ ×{OTR.ORDINARY_MAX:g}) within a format (Shorts and long videos "
+                                 f"separately): "
+                                 f"the share with a trait (notable — a difference of {OTR.MIN_DIFF_PP} pp "
+                                 f"or more) or "
                                  f"the median (notable — {OTR.MIN_RATIO:g}x or more). Correlation, "
                                  "not cause; with a dozen traits one or two line up by chance",
                       "inputs": ["titles", "duration", "tags", "publication time", "multipliers"],
@@ -149,11 +158,13 @@ CATALOG = {
                   "formula": "0–100 from six weighted terms: " + ", ".join(
                       f"{NRK.LABELS[k].lower()} {w}" for k, w in NRK.WEIGHTS.items()) +
                              ". Each term is 0–100 points on a linear scale, the total is a weighted "
-                             "mean of the known ones; the weights are a judgement, RPM is an estimate. No score if the niche "
+                             "mean of the known ones; the weights are a judgement, RPM is an estimate. No "
+                             "score if the niche "
                              "trend is \"not enough data\"",
                   "inputs": ["niche trend", "newcomers", "category RPM", "channel templating",
                              "policy signals"],
-                  "minSample": f"trend: {SAT.MIN_VIDEOS}+ videos in each window; {round(NRK.MIN_COVERAGE * 100)}%+ "
+                  "minSample": f"trend: {SAT.MIN_VIDEOS}+ videos in each window; "
+                               f"{round(NRK.MIN_COVERAGE * 100)}%+ "
                                "of the weight known"},
     "expectedCurve": {"name": "Expected trajectory", "source": ESTIMATE,
                       "formula": "channel median views × maturation curve(age)",
@@ -161,20 +172,26 @@ CATALOG = {
                       "minSample": "4 collected videos of the channel"},
     "policySignals": {"name": "Monetization-policy signals", "source": ESTIMATE,
                       "formula": "three categories of \"inauthentic\" content: templating (template risk, "
-                                 "similar thumbnails), shock (the share of titles with shock markers: high from "
+                                 "similar thumbnails), shock (the share of titles with shock markers: high "
+                                 "from "
                                  f"{round(PS.SHOCK_HIGH * 100)}%), AI persona (a sensitive topic in "
-                                 f"{round(PS.SENSITIVE_SHARE * 100)}%+ of videos plus disclosed AI or a faceless "
-                                 "channel — no higher than \"worth watching\"). No overall percentage, not a YouTube decision",
+                                 f"{round(PS.SENSITIVE_SHARE * 100)}%+ of videos plus disclosed AI or a "
+                                 f"faceless "
+                                 "channel — no higher than \"worth watching\"). No overall percentage, not "
+                                 "a YouTube decision",
                       "inputs": ["titles", "YouTube topics", "AI disclosure", "thumbnails", "AI labels"],
                       "minSample": f"{PS.MIN_TITLES} titles; templating — {TR.MIN_VIDEOS} uploads"},
     "ownFormats": {"name": "Formats of your own channel", "source": ESTIMATE,
-                   "formula": "from your YouTube Analytics data by creatorContentType: the share of views and "
+                   "formula": "from your YouTube Analytics data by creatorContentType: the share of views "
+                              "and "
                               "subscribers per 1000 views by format; Pearson r between weekly "
-                              "Shorts and long-video views; watch hours of long videos and streams over 365 days and the date "
+                              "Shorts and long-video views; watch hours of long videos and streams over 365 "
+                              "days and the date "
                               "of the threshold at the 30-day pace (not YouTube's \"qualified watch hours\")",
                    "inputs": ["your channel via OAuth"], "minSample": "8 weeks for the format link"},
     "topicMatch": {"name": "Topic match", "source": ESTIMATE,
-                   "formula": "cosine of the embeddings of the topic and of a video's title with description ≥ the topic threshold",
+                   "formula": "cosine of the embeddings of the topic and of a video's title with "
+                              "description ≥ the topic threshold",
                    "inputs": ["embeddings"], "minSample": None},
 }
 

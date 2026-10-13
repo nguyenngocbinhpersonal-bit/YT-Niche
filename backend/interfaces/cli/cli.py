@@ -361,7 +361,8 @@ def main():
     p.add_argument("--name", default=None)
     p.set_defaults(fn=cmd_create_token)
 
-    p = sub.add_parser("embed-videos", help="compute missing embeddings for already collected videos (0 quota)")
+    p = sub.add_parser("embed-videos", help="compute missing embeddings for already collected videos (0 "
+                                            "quota)")
     p.add_argument("--limit", type=int, default=1000)
     p.set_defaults(fn=cmd_embed_videos)
 

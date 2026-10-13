@@ -78,7 +78,8 @@ def visible_prefix_signal(title: str, key_phrase: str = None) -> dict:
     verdict = "ok" if (not truncated or not key_phrase or hit) else "warn"
     explanation = f"first {VISIBLE_TITLE_CHARS} characters: “{prefix}”"
     if key_phrase:
-        explanation += f" -- the phrase “{key_phrase}” {'falls into' if hit else 'does NOT fall into'} the visible part"
+        explanation += (f" -- the phrase “{key_phrase}” "
+                        f"{'falls into' if hit else 'does NOT fall into'} the visible part")
     return {"id": "visible_prefix", "value": prefix, "truncated": truncated,
             "verdict": verdict, "explanation": explanation}
 

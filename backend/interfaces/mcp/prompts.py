@@ -13,7 +13,8 @@ from typing import Annotated
 
 from pydantic import Field
 
-TOPIC = Annotated[str, Field(description="The topic of the future channel, as it would be searched on YouTube")]
+TOPIC = Annotated[str, Field(description="The topic of the future channel, as it would be searched on "
+                                         "YouTube")]
 PAGES = Annotated[str, Field(description="How many search pages to take, 1–3 (each one is 1 of 100 "
                                          "searches per day)")]
 CHANNEL = Annotated[str, Field(description="Channel: @handle, UC… id or link")]
@@ -49,15 +50,19 @@ def register(mcp):
     def find_niche(topic: TOPIC, pages: PAGES = "1") -> str:
         n = _pages(pages)
         steps = _steps(
-            "Call `list_niches()`. If a niche with this query already exists and was collected in the last 7 days — "
+            "Call `list_niches()`. If a niche with this query already exists and was collected in the last "
+            "7 days — "
             "skip collecting and use its slug.",
             QUOTA_GUARD + f" Collecting needs search_calls_left_today to be at least {n + 5}.",
-            f"If there is no data: `collect_niche(query=\"{topic}\", pages={n})`. Don't take more than {n} pages.",
-            "`niche_overview(niche=<slug>)` — channel sizes, medians, and separately saturation_v2 (the trend: "
+            f"If there is no data: `collect_niche(query=\"{topic}\", pages={n})`. Don't take more than {n} "
+            f"pages.",
+            "`niche_overview(niche=<slug>)` — channel sizes, medians, and separately saturation_v2 (the "
+            "trend: "
             "growing / stable / cooling / saturated / not enough data, with reasons and confidence).",
             "`viral_videos_small_channels(niche=<slug>, period=\"30d\")` — what breaks out "
             "for channels under 10k.",
-            "`niche_template_risk(niche=<slug>)` — what share of channels looks like a templated assembly line.",
+            "`niche_template_risk(niche=<slug>)` — what share of channels looks like a templated assembly "
+            "line.",
         )
         return f"""Evaluate the topic "{topic}" as a niche for a new YouTube channel.
 
@@ -69,7 +74,8 @@ is not collected yet. The other steps are free.
 Answer: a short table "indicator — value — what it means" (channels, median views,
 the trend and its reasons, small-channel breakouts, share of templated channels), then 3–5 examples
 of viral videos from small channels and a conclusion in 2–3 sentences: whether to enter and with which format.
-If the trend is "not enough data" or confidence is low — say so, don't draw a conclusion stronger than the data.
+If the trend is "not enough "
+                "data" or confidence is low — say so, don't draw a conclusion stronger than the data.
 {ANSWER}"""
 
     @mcp.prompt(name="analyze_competitor", title="Analyse a competitor",
@@ -78,7 +84,8 @@ If the trend is "not enough data" or confidence is low — say so, don't draw a 
     def analyze_competitor(channel: CHANNEL) -> str:
         steps = _steps(
             QUOTA_GUARD + " 10 units are enough for this scenario.",
-            f"`collect_channel(channel=\"{channel}\", max_videos=100)` — take the channel_id from the response.",
+            f"`collect_channel(channel=\"{channel}\", max_videos=100)` — take the channel_id from the "
+            f"response.",
             "`channel_analytics(channel_id=<id>)` — growth, cadence, median against mean, best outliers.",
             "`title_patterns(channel_id=<id>)` — which title phrases are tied to breakouts.",
             "`best_time_to_publish(channel_id=<id>)` — the best days and hours (UTC).",
@@ -92,12 +99,15 @@ search requests. The other steps are free.
 {steps}
 
 Answer: the channel profile (subscribers, frequency, median views), the 3–5 best videos with their multiplier,
-phrase patterns, the best time, similar channels, and 3 concrete conclusions: what is worth borrowing from it and
-where it is weak. The growth fields are empty until there are snapshots from several days — say so if that is the case.
+phrase patterns, the best time, similar channels, and 3 concrete conclusions: what is worth borrowing from
+it and
+where it is weak. The growth fields are empty until there are snapshots from several days — say so if that
+is the case.
 {ANSWER}"""
 
     @mcp.prompt(name="validate_idea", title="Validate an idea",
-                description="Whether such videos already exist in the niche and how they performed, a score for "
+                description="Whether such videos already exist in the niche and how they performed, a score "
+                            "for "
                             "title variants and who is about to become a competitor. Quota: 0.")
     def validate_idea(idea: IDEA, niche: NICHE) -> str:
         steps = _steps(
@@ -120,15 +130,18 @@ are nearby. {ANSWER}"""
 
     @mcp.prompt(name="outlier_to_video", title="Outlier → your own video",
                 description="A brief for your own video from one video that broke out: hook, "
-                            "niche patterns, whether the topic is taken, titles, thumbnail references. Quota: 0.")
+                            "niche patterns, whether the topic is taken, titles, thumbnail references. "
+                            "Quota: 0.")
     def outlier_to_video(video_id: VIDEO, use_llm: USE_LLM = "yes") -> str:
         llm = str(use_llm).strip().lower() not in ("no", "нет", "false", "0")
         steps = _steps(
             f"`build_brief(video_id=\"{video_id}\", use_llm={str(llm).lower()}, save=false)`.",
-            f"`format_repeatability(video_id=\"{video_id}\")` — whether the format was repeated by other channels. "
+            f"`format_repeatability(video_id=\"{video_id}\")` — whether the format was repeated by other "
+            f"channels. "
             "If 'one_off' — say honestly that it may be one-off luck; 'unknown' means "
             "\"too little collected\", not \"doesn't work\".",
-            "Look at skipped: name plainly everything that could not be collected (for example, no transcript — "
+            "Look at skipped: name plainly everything that could not be collected (for example, no "
+            "transcript — "
             "suggest pasting it on the \"Transcripts\" screen).",
             "If the brief is useful, ask whether to save it to drafts, and only after consent call "
             f"`build_brief(video_id=\"{video_id}\", use_llm={str(llm).lower()}, save=true)`.",
@@ -139,7 +152,8 @@ Quota: 0. With use_llm=true the server's LLM budget is spent (if one is configur
 
 {steps}
 
-Answer: why the video broke out, whether the format is repeated, the hook, whether the topic is taken (what is already filmed),
+Answer: why the video broke out, whether the format is repeated, the hook, whether the topic is taken (what
+is already filmed),
 3–5 titles, and my angle — how my video should differ, not how to copy it. {ANSWER}"""
 
     @mcp.prompt(name="weekly_review", title="Weekly review",
@@ -149,7 +163,8 @@ Answer: why the video broke out, whether the format is repeated, the hook, wheth
         steps = _steps(
             f"`daily_digest(period=\"{period}\")` — summary: outliers, accelerations, rising channels.",
             "`list_events(unseen_only=true)` — unseen alerts.",
-            f"`packaging_changes(period=\"{period}\")` — who changed a title or thumbnail and what happened to "
+            f"`packaging_changes(period=\"{period}\")` — who changed a title or thumbnail and what happened "
+            f"to "
             "views.",
             f"`recently_added_outlier_channels(period=\"{period}\")` — new channels that immediately "
             "outperform their level.",
@@ -170,7 +185,8 @@ for the period — say that the worker may not be running. {ANSWER}"""
     def find_content_gaps(niche: NICHE) -> str:
         steps = _steps(
             f"`content_gaps(niche=\"{niche}\", fetch=false)` — cache only.",
-            "If skippedVideos contains videos with reason=not-fetched — say how many there are and how many units "
+            "If skippedVideos contains videos with reason=not-fetched — say how many there are and how many "
+            "units "
             "that costs, and ask whether to read the comments. Only if the user agrees: "
             + QUOTA_GUARD + f" Then `content_gaps(niche=\"{niche}\", fetch=true)`.",
             "Show the gaps and ask which one to make a brief for. For the chosen one: "
@@ -184,7 +200,8 @@ up to 10), and only after the user agrees.
 {steps}
 
 Answer: a table of gaps (question, status, how many times asked, nearest existing video),
-a note on the mode (LLM or rules — there is more noise without an LLM) and the database size from coverageBase: a gap
+a note on the mode (LLM or rules — there is more noise without an LLM) and the database size from
+coverageBase: a gap
 is only as real as the database is complete. {ANSWER}"""
 
     @mcp.prompt(name="niche_health", title="Niche health",
@@ -193,7 +210,8 @@ is only as real as the database is complete. {ANSWER}"""
     def niche_health(niche: NICHE) -> str:
         steps = _steps(
             f"`niche_overview(niche=\"{niche}\")` — take saturation_v2: status, reasons, confidence.",
-            f"`niche_template_risk(niche=\"{niche}\")` — the share of templated channels (a risk for the whole niche).",
+            f"`niche_template_risk(niche=\"{niche}\")` — the share of templated channels (a risk for the "
+            f"whole niche).",
             f"`sponsor_map(niche=\"{niche}\")` — whether brands pay the niche's creators and which ones.",
             f"`niche_hook_benchmark(niche=\"{niche}\")` — how outlier hooks differ (if there are enough "
             "transcripts).",

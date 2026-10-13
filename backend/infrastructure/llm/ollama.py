@@ -92,7 +92,8 @@ class OllamaProvider:
         names = {m.get("name") for m in resp.json().get("models", [])}
         if self.model and self.model not in names and not any(
                 n.split(":")[0] == self.model for n in names if n):
-            return False, f"the server responds, but the model {self.model!r} is missing -- `ollama pull {self.model}`"
+            return False, (f"the server responds, but the model {self.model!r} is missing -- "
+                           f"`ollama pull {self.model}`")
         return True, f"OK -- {len(names)} models, {self.model or '(no model set)'}"
 
 
