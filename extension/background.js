@@ -1,20 +1,20 @@
-/* Service worker: единственное место, которое ходит в сеть.
+/* Service worker: the only place that talks to the network.
  *
- * Почему не из content script: страница YouTube отдаётся по https, а бэкенд
- * слушает http://127.0.0.1 — из контекста страницы это смешанный контент.
- * У service worker'а свой origin (chrome-extension://), и с host_permissions
- * запрос к локальной машине проходит без CORS-плясок.
+ * Why not from the content script: the YouTube page is served over https, while the backend
+ * listens on http://127.0.0.1 — from the page context that is mixed content.
+ * The service worker has its own origin (chrome-extension://), and with host_permissions
+ * a request to the local machine goes through without CORS gymnastics.
  *
- * Здесь же кэш: YouTube — SPA, и панель перерисовывается по несколько раз на
- * одно видео. Без кэша это были бы лишние запросы к базе на каждую перерисовку.
+ * The cache lives here too: YouTube is a SPA, and the panel is redrawn several times for
+ * one video. Without a cache these would be extra database requests on every redraw.
  */
 
 const DEFAULTS = {
   baseUrl: 'http://127.0.0.1:8080',
-  autoFetch: true,      // добирать из YouTube API то, чего нет в базе (1-2 units)
-  showBadges: true,     // значки на карточках видео в выдаче
-  onlyOutliers: false,  // показывать значок только при score >= 1.5
-  showVph: true,        // второй значок — просмотров/час под превью
+  autoFetch: true,      // fetch from the YouTube API what is missing in the database (1-2 units)
+  showBadges: true,     // badges on video cards in the results
+  onlyOutliers: false,  // show a badge only when score >= 1.5
+  showVph: true,        // a second badge — views/hour under the thumbnail
   timeoutMs: 12000,
 };
 
@@ -23,13 +23,13 @@ const TTL = { video: 120e3, channel: 300e3, deep: 300e3, batch: 600e3, health: 3
 
 async function getSettings() {
   const stored = await chrome.storage.sync.get(DEFAULTS);
-  // План 15 (5.7): личный API-токен для сервера с входом (NF_MULTI_USER=1).
-  // Секрет -- в storage.local: sync разнёс бы его по всем браузерам аккаунта.
+  // Plan 15 (5.7): a personal API token for a server with sign-in (NF_MULTI_USER=1).
+  // The secret goes in storage.local: sync would spread it across all the account's browsers.
   const { apiToken = '' } = await chrome.storage.local.get({ apiToken: '' });
   return { ...DEFAULTS, ...stored, apiToken };
 }
 
-// ------------------------------------------------------------------- кэш
+// ------------------------------------------------------------------- cache
 
 const cache = new Map();
 
@@ -50,7 +50,7 @@ function cacheSet(key, v) {
 
 function cacheDropVideo(id) { cache.delete('video:' + id); cache.delete('card:' + id); }
 
-// ------------------------------------------------------------------- сеть
+// ------------------------------------------------------------------- network
 
 async function api(path, { method = 'GET', body = null } = {}) {
   const s = await getSettings();
@@ -59,8 +59,8 @@ async function api(path, { method = 'GET', body = null } = {}) {
   try {
     res = await fetch(base + path, {
       method,
-      // X-NF-Client на каждом запросе: бэкенд принимает POST/DELETE только с ним
-      // или с JSON-телом, иначе 403 (защита от чужих сайтов, api.py local_only_guard)
+      // X-NF-Client on every request: the backend accepts POST/DELETE only with it
+      // or with a JSON body, otherwise 403 (protection from other sites, api.py local_only_guard)
       headers: {
         'X-NF-Client': 'extension',
         ...(body ? { 'Content-Type': 'application/json' } : {}),
@@ -70,7 +70,7 @@ async function api(path, { method = 'GET', body = null } = {}) {
       signal: AbortSignal.timeout(s.timeoutMs),
     });
   } catch (e) {
-    const err = new Error(`бэкенд не отвечает (${base}). Запущен ли он? make dev`);
+    const err = new Error(`backend is not responding (${base}). Is it running? make dev`);
     err.offline = true;
     throw err;
   }
@@ -85,7 +85,7 @@ async function api(path, { method = 'GET', body = null } = {}) {
   return data;
 }
 
-// --------------------------------------------------------------- сценарии
+// --------------------------------------------------------------- scenarios
 
 async function inspectVideo(videoId, refresh) {
   const key = 'video:' + videoId;
@@ -115,9 +115,9 @@ async function inspectChannel(ref, refresh) {
   return data;
 }
 
-/* Глубокая аналитика канала — только если в базе уже есть его ролики.
- * Четыре запроса параллельно, каждый читает локальный Postgres и ничего не
- * стоит по квоте. Падение любого из них не должно ронять панель целиком. */
+/* Deep channel analytics — only if its videos are already in the database.
+ * Four requests in parallel, each reads the local Postgres and costs
+ * no quota. The failure of any one of them must not take down the whole panel. */
 async function channelDeep(channelId) {
   const key = 'deep:' + channelId;
   const hit = cacheGet(key, TTL.deep);
@@ -169,7 +169,7 @@ async function templateRisk(channelId) {
 async function videoComments(videoId, maxResults = 50) {
   /* POST because it spends 1 unit of quota (commentThreads.list) -- unlike
      everything else the panel shows automatically, this only runs when the
-     person clicks "Показать комментарии", and is cached afterwards so
+     person clicks "Show comments", and is cached afterwards so
      re-opening the panel within TTL.comments is free. */
   const key = 'comments:' + videoId;
   const hit = cacheGet(key, TTL.comments);
@@ -234,8 +234,8 @@ async function health() {
   return data;
 }
 
-/* Алерты (8.9) -- не кэшируется: счётчик на иконке и попап должны видеть
-   свежее состояние, а не то, что было на прошлый опрос. */
+/* Alerts (8.9) -- not cached: the icon counter and the popup must see
+   the fresh state, not what it was at the last poll. */
 async function listEvents(unseenOnly) {
   const q = unseenOnly ? '?unseen_only=true' : '';
   return api('/api/events' + q);
@@ -245,8 +245,8 @@ async function markEventsSeen(ids, all) {
   return api('/api/events/seen', { method: 'POST', body: { ids, all } });
 }
 
-/* Разбор метаданных (8.8) -- набирается в попапе, не кэшируется: каждый
-   вызов должен читать текущее состояние базы, а не вчерашний ответ. */
+/* Metadata review (8.8) -- typed in the popup, not cached: every
+   call must read the current state of the database, not yesterday's answer. */
 async function reviewMetadata(payload) {
   return api('/api/metadata/review', { method: 'POST', body: payload });
 }
@@ -255,7 +255,7 @@ async function saveDraft(payload) {
   return api('/api/drafts', { method: 'POST', body: payload });
 }
 
-// ------------------------------------------------------- значок на иконке
+// ------------------------------------------------------- icon badge
 
 async function refreshActionBadge() {
   try {
@@ -284,12 +284,12 @@ chrome.alarms.onAlarm.addListener((a) => {
   if (a.name === 'health' || a.name === 'events') refreshActionBadge();
 });
 
-// ------------------------------------------------------------- маршрутизация
+// ------------------------------------------------------------- routing
 
 const HANDLERS = {
   'settings:get': async () => {
     const s = await getSettings();
-    return { ...s, apiToken: s.apiToken ? '••••' : '' };   // попапу хватает «есть / нет»
+    return { ...s, apiToken: s.apiToken ? '••••' : '' };   // the popup only needs "present / absent"
   },
   'settings:set': async (m) => {
     const { apiToken, ...rest } = m.patch || {};
@@ -297,18 +297,18 @@ const HANDLERS = {
     if (apiToken !== undefined) await chrome.storage.local.set({ apiToken: String(apiToken).trim() });
     cache.clear();
     const s = await getSettings();
-    return { ...s, apiToken: s.apiToken ? '••••' : '' };   // сам токен в попап не возвращаем
+    return { ...s, apiToken: s.apiToken ? '••••' : '' };   // the token itself is not returned to the popup
   },
   'health': () => health(),
   'stats': () => stats(),
   'why': (m) => explainOutlier(m.videoId, m.refresh),
-  // план 21: сработал ли формат у других каналов (по собранной базе, квота 0)
+  // plan 21: did the format work for other channels (from the collected database, quota 0)
   'repeatability': (m) => api(`/api/videos/${encodeURIComponent(m.videoId)}/repeatability`),
-  // план 30: чистая прибыль канала в месяц по первому профилю расходов
+  // plan 30: the channel's net profit per month for the first cost profile
   'profit': (m) => api(`/api/profit?channel_id=${encodeURIComponent(m.channelId)}`),
-  // план 26: есть ли похожее видео на другом языке (по собранной базе, квота 0)
+  // plan 26: is there a similar video in another language (from the collected database, quota 0)
   'languageGap': (m) => api(`/api/videos/${encodeURIComponent(m.videoId)}/language-gap`),
-  // план 20: просмотры по возрасту из снимков воркера, для мини-графика
+  // plan 20: views by age from worker snapshots, for the mini chart
   'trajectory': (m) => api(`/api/videos/trajectory?ids=${encodeURIComponent(m.videoId)}`),
   'video': (m) => inspectVideo(m.videoId, m.refresh),
   'channel': (m) => inspectChannel(m.ref, m.refresh),
@@ -316,7 +316,7 @@ const HANDLERS = {
   'similarVideos': (m) => similarVideos(m.videoId),
   'packaging': (m) => packagingHistory(m.videoId),
   'templateRisk': (m) => templateRisk(m.channelId),
-  // план 22: сигналы по трём категориям правил монетизации (квота 0)
+  // plan 22: signals for the three monetization-policy categories (quota 0)
   'policySignals': (m) => api(`/api/channels/${encodeURIComponent(m.channelId)}/policy-signals`),
   'comments': (m) => videoComments(m.videoId, m.maxResults),
   'batch': (m) => inspectBatch(m.ids || []),
@@ -343,7 +343,7 @@ const HANDLERS = {
   } }),
   'metadataReview': (m) => reviewMetadata(m.payload),
   'saveDraft': (m) => saveDraft(m.payload),
-  // план 19: следить за темой -- алерт, когда в базу попадёт похожее видео
+  // plan 19: follow a topic -- an alert when a similar video enters the database
   'watchTopic': (m) => api('/api/topics', { method: 'POST', body: { text: m.text } }),
   'events': (m) => listEvents(m.unseenOnly),
   'eventsSeen': (m) => markEventsSeen(m.ids, m.all),
@@ -353,9 +353,9 @@ const HANDLERS = {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const handler = HANDLERS[msg && msg.type];
-  if (!handler) { sendResponse({ ok: false, error: 'неизвестная команда' }); return false; }
+  if (!handler) { sendResponse({ ok: false, error: 'unknown command' }); return false; }
   Promise.resolve(handler(msg))
     .then((data) => sendResponse({ ok: true, data }))
     .catch((e) => sendResponse({ ok: false, error: String(e.message || e), offline: !!e.offline, status: e.status }));
-  return true; // ответ придёт асинхронно
+  return true; // the response will arrive asynchronously
 });

@@ -1,6 +1,6 @@
-/* Панели и значки. Всё под префиксом .nf-, чтобы ничего не пересеклось с
-   собственными стилями YouTube. Тема берётся из атрибута html[dark], который
-   YouTube ставит сам, — поэтому переключение темы работает без перезагрузки. */
+/* Panels and badges. Everything is under the .nf- prefix so nothing clashes with
+   YouTube's own styles. The theme comes from the html[dark] attribute, which
+   YouTube sets itself — so switching the theme works without a reload. */
 
 .nf-panel {
   --nf-bg: #ffffff;
@@ -32,7 +32,7 @@ html[dark] .nf-panel {
 
 #nf-panel-channel { margin: 12px 24px 20px; }
 
-/* -------------------------------------------------------------- шапка */
+/* -------------------------------------------------------------- header */
 
 .nf-head {
   display: flex; align-items: center; gap: 8px;
@@ -61,7 +61,7 @@ html[dark] .nf-chip-api { color: #f9ab00; border-color: rgba(249, 171, 0, .4); }
 
 .nf-body { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
 
-/* ------------------------------------------------------------ главный блок */
+/* ------------------------------------------------------------ main block */
 
 .nf-hero { display: flex; align-items: center; gap: 12px; }
 .nf-score {
@@ -86,7 +86,7 @@ html[dark] .nf-band-4 { --nf-band-fg: #f9ab00; }
 html[dark] .nf-band-5 { --nf-band-fg: #ff8a65; }
 html[dark] .nf-band-6 { --nf-band-fg: #ff6b6b; }
 
-/* ----------------------------------------------------------- сетка цифр */
+/* ----------------------------------------------------------- number grid */
 
 .nf-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .nf-cell { background: var(--nf-soft); border-radius: 8px; padding: 8px; }
@@ -105,7 +105,7 @@ html[dark] .nf-error { color: #ff6b6b; }
 .nf-channel { border-top: 1px solid var(--nf-border); padding-top: 10px; }
 .nf-ch-title { font-weight: 600; }
 
-/* --------------------------------------------------------------- теги */
+/* --------------------------------------------------------------- tags */
 
 .nf-tags { display: flex; flex-wrap: wrap; gap: 4px; max-height: 108px; overflow: auto; }
 .nf-tag {
@@ -117,7 +117,7 @@ html[dark] .nf-error { color: #ff6b6b; }
   color: var(--nf-accent); font-size: 12px; text-align: left;
 }
 
-/* ------------------------------------------------------------- секции */
+/* ------------------------------------------------------------- sections */
 
 .nf-sec { border-top: 1px solid var(--nf-border); padding-top: 10px; }
 .nf-sec-h { font-weight: 600; margin-bottom: 6px; }
@@ -138,7 +138,7 @@ a.nf-item:hover .nf-item-t { text-decoration: underline; }
 }
 .nf-slot b { color: var(--nf-accent); margin-left: 4px; }
 
-/* ------------------------------------------------------------- кнопки */
+/* ------------------------------------------------------------- buttons */
 
 .nf-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .nf-btn {
@@ -158,7 +158,7 @@ a.nf-item:hover .nf-item-t { text-decoration: underline; }
 .nf-skeleton.nf-short { width: 55%; }
 @keyframes nf-pulse { 50% { opacity: .45; } }
 
-/* ------------------------------------------- значки на карточках видео */
+/* ------------------------------------------- badges on video cards */
 
 .nf-badge {
   position: absolute; top: 4px; left: 4px; z-index: 20;

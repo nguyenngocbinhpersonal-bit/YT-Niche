@@ -1,30 +1,30 @@
-/* Экран дашборда. Роутинг -- router.js, общее -- shared.js, компоненты -- ui.js. */
+/* Dashboard screen. Routing -- router.js, shared code -- shared.js, components -- ui.js. */
 import { $, api, q, num, esc, sectionHead, empty, videoCard, yppSelect } from '../ui.js';
 import { view, base, collectForm, wireCollect, render } from '../shared.js';
 
-/* ------------------------------------------------- Найти нишу (бесплатно) */
+/* ------------------------------------------------- Find a niche (free) */
 
 const FIND_SORTS = [
-  ['outlier', 'множитель'], ['outlier_adjusted', 'множитель с поправкой на возраст'],
-  ['views', 'просмотры'], ['vph', 'VPH за 24ч'], ['velocity', 'прирост за сутки'],
-  ['engagement', 'вовлечённость'], ['acceleration', 'ускорение'], ['published', 'дата публикации'],
+  ['outlier', 'multiplier'], ['outlier_adjusted', 'age-adjusted multiplier'],
+  ['views', 'views'], ['vph', 'VPH, 24h'], ['velocity', 'daily growth'],
+  ['engagement', 'engagement'], ['acceleration', 'acceleration'], ['published', 'publication date'],
 ];
 
-/* Читаемое перечисление активных нестандартных фильтров -- нужно, чтобы
-   "ничего не нашлось" объясняло причину, а не просто разводило руками
-   (застрявший в localStorage фильтр вроде "подписчиков не больше 10"
-   иначе выглядит как будто весь поиск сломан). */
+/* A readable list of active non-default filters -- needed so that
+   "nothing found" explains the reason instead of just shrugging
+   (a filter stuck in localStorage such as "subscribers at most 10"
+   would otherwise look like the whole search is broken). */
 function activeFindFilters(p) {
   const active = [];
-  if (p.query) active.push(`тема «${p.query}»`);
-  if (p.min_outlier_score) active.push(`множитель ≥ ${p.min_outlier_score}`);
-  if (p.max_subscribers) active.push(`подписчиков ≤ ${num(p.max_subscribers)}`);
+  if (p.query) active.push(`topic “${p.query}”`);
+  if (p.min_outlier_score) active.push(`multiplier ≥ ${p.min_outlier_score}`);
+  if (p.max_subscribers) active.push(`subscribers ≤ ${num(p.max_subscribers)}`);
   if (p.min_rpm) active.push(`RPM ≥ $${p.min_rpm}`);
   if (p.max_rpm) active.push(`RPM ≤ $${p.max_rpm}`);
-  if (p.min_length_min) active.push(`длина видео ≥ ${p.min_length_min} мин`);
-  if (p.max_length_min) active.push(`длина видео ≤ ${p.max_length_min} мин`);
-  if (p.shorts !== 'any') active.push(p.shorts === 'exclude' ? 'без Shorts' : 'только Shorts');
-  if (p.min_ypp_status) active.push('пороги YPP');
+  if (p.min_length_min) active.push(`video length ≥ ${p.min_length_min} min`);
+  if (p.max_length_min) active.push(`video length ≤ ${p.max_length_min} min`);
+  if (p.shorts !== 'any') active.push(p.shorts === 'exclude' ? 'no Shorts' : 'Shorts only');
+  if (p.min_ypp_status) active.push('YPP thresholds');
   return active;
 }
 
@@ -49,53 +49,53 @@ async function viewFind() {
 
   view.innerHTML = `
     <div class="card">
-      ${sectionHead('Найти нишу', 'семантический поиск по уже собранной базе — бесплатно, квота YouTube не тратится')}
+      ${sectionHead('Find a niche', 'semantic search over the already collected database — free, no YouTube quota spent')}
       <div class="form-row">
-        <label class="field" style="flex:2"><span class="field-label">Тема на естественном языке (необязательно)</span>
-          <input type="text" id="fQuery" placeholder="расслабляющие видео о природе" value="${esc(p.query)}"></label>
-        <label class="field"><span class="field-label">Множитель не меньше</span>
+        <label class="field" style="flex:2"><span class="field-label">Topic in natural language (optional)</span>
+          <input type="text" id="fQuery" placeholder="relaxing nature videos" value="${esc(p.query)}"></label>
+        <label class="field"><span class="field-label">Multiplier at least</span>
           <input type="number" id="fMinOutlier" value="${p.min_outlier_score}" step="0.5"></label>
-        <label class="field"><span class="field-label">Подписчиков не больше</span>
-          <input type="number" id="fMaxSubs" value="${p.max_subscribers}" step="1000" placeholder="например, 100000"></label>
-        <label class="field"><span class="field-label">Сортировка</span>
+        <label class="field"><span class="field-label">Subscribers at most</span>
+          <input type="number" id="fMaxSubs" value="${p.max_subscribers}" step="1000" placeholder="e.g. 100000"></label>
+        <label class="field"><span class="field-label">Sort by</span>
           <select id="fFindSort">
             ${FIND_SORTS.map(([v, l]) => `<option value="${v}"${p.sort_by === v ? ' selected' : ''}>${l}</option>`).join('')}
           </select></label>
       </div>
       <div class="form-row" style="margin-top:8px">
-        <label class="field"><span class="field-label">RPM от, $</span>
-          <input type="number" id="fMinRpm" value="${p.min_rpm}" step="1" min="0" placeholder="например, 5"></label>
-        <label class="field"><span class="field-label">RPM до, $</span>
-          <input type="number" id="fMaxRpm" value="${p.max_rpm}" step="1" min="0" placeholder="например, 8"></label>
-        <label class="field"><span class="field-label">Длина видео от, мин</span>
-          <input type="number" id="fMinLen" value="${p.min_length_min}" step="1" min="0" placeholder="например, 3"></label>
-        <label class="field"><span class="field-label">Длина видео до, мин</span>
-          <input type="number" id="fMaxLen" value="${p.max_length_min}" step="1" min="0" placeholder="например, 20"></label>
+        <label class="field"><span class="field-label">RPM from, $</span>
+          <input type="number" id="fMinRpm" value="${p.min_rpm}" step="1" min="0" placeholder="e.g. 5"></label>
+        <label class="field"><span class="field-label">RPM to, $</span>
+          <input type="number" id="fMaxRpm" value="${p.max_rpm}" step="1" min="0" placeholder="e.g. 8"></label>
+        <label class="field"><span class="field-label">Video length from, min</span>
+          <input type="number" id="fMinLen" value="${p.min_length_min}" step="1" min="0" placeholder="e.g. 3"></label>
+        <label class="field"><span class="field-label">Video length to, min</span>
+          <input type="number" id="fMaxLen" value="${p.max_length_min}" step="1" min="0" placeholder="e.g. 20"></label>
         <label class="field"><span class="field-label">Shorts</span>
           <select id="fShorts">
-            <option value="any"${p.shorts === 'any' ? ' selected' : ''}>любые</option>
-            <option value="exclude"${p.shorts === 'exclude' ? ' selected' : ''}>без Shorts</option>
-            <option value="only"${p.shorts === 'only' ? ' selected' : ''}>только Shorts</option>
+            <option value="any"${p.shorts === 'any' ? ' selected' : ''}>any</option>
+            <option value="exclude"${p.shorts === 'exclude' ? ' selected' : ''}>no Shorts</option>
+            <option value="only"${p.shorts === 'only' ? ' selected' : ''}>Shorts only</option>
           </select></label>
         ${yppSelect('fYpp', p.min_ypp_status)}
-        <button class="btn" id="applyFind" type="button">Искать</button>
-        <button class="btn btn-ghost" id="resetFind" type="button">Сбросить фильтры</button>
+        <button class="btn" id="applyFind" type="button">Search</button>
+        <button class="btn btn-ghost" id="resetFind" type="button">Reset filters</button>
       </div>
-      <div class="section-sub" style="margin-top:10px">Ищет по уже собранным видео через эмбеддинги title+description
-        (если тема не задана — просто просмотр по выбранной сортировке). RPM — оценка по официальной категории
-        YouTube видео (та же модель, что и в оценке дохода канала), не измеренная выплата; на карточках она
-        показана вилкой ÷2…×2, а фильтр сравнивает её середину. Категория YouTube не
-        различает высокодоходные ниши вроде finance/business, поэтому оценка на практике не превышает ~$8 —
-        «RPM от $10» и выше всегда даст пустой список. Фильтры запоминаются в этом браузере между визитами —
-        если поиск вдруг перестал что-либо находить, нажмите «Сбросить фильтры». Ничего не находит и без
-        фильтров? Ниже квотированный сбор новых данных с YouTube, или загляните в раздел «Данные», чтобы
-        проверить покрытие корпуса.</div>
+      <div class="section-sub" style="margin-top:10px">Searches the already collected videos via title+description embeddings
+        (if no topic is set -- just browsing by the selected sort). RPM is an estimate from the video's official
+        YouTube category (the same model as the channel revenue estimate), not a measured payout; on cards it is
+        shown as a ÷2…×2 range, while the filter compares its midpoint. The YouTube category does not
+        distinguish high-paying niches like finance/business, so in practice the estimate does not exceed ~$8 —
+        "RPM from $10" and above always gives an empty list. Filters are remembered in this browser between visits —
+        if the search suddenly stops finding anything, press "Reset filters". Finds nothing even without
+        filters? Below is a quota-limited collection of new data from YouTube, or check the "Data" section to
+        check the corpus coverage.</div>
     </div>
     ${d.results.length ? `<div class="cards">${d.results.map(videoCard).join('')}</div>`
                        : empty(activeFindFilters(p).length
-                           ? `Ничего не нашлось с фильтрами: ${esc(activeFindFilters(p).join(', '))}. `
-                             + 'Если вы их не выставляли сами -- нажмите «Сбросить фильтры» выше.'
-                           : 'под эти фильтры в собранной базе ничего не нашлось')}
+                           ? `Nothing found with the filters: ${esc(activeFindFilters(p).join(', '))}. `
+                             + 'If you did not set them yourself, press "Reset filters" above.'
+                           : 'nothing in the collected database matches these filters')}
     ${collectForm()}`;
 
   $('#applyFind').addEventListener('click', () => {

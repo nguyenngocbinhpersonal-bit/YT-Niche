@@ -1,5 +1,5 @@
-/* niche-finder dashboard — vanilla ES modules, без сборки.
-   Каждый экран читает те же функции, что и MCP-инструменты, через backend/api.py. */
+/* niche-finder dashboard — vanilla ES modules, no build step.
+   Every screen reads the same functions as the MCP tools, via backend/api.py. */
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -18,9 +18,9 @@ async function api(path, opts = {}) {
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   let data = null;
-  try { data = await res.json(); } catch { /* пустой ответ */ }
+  try { data = await res.json(); } catch { /* empty response */ }
   if (res.status === 401 && path !== '/api/auth/login') {
-    // План 15: сессия кончилась или её нет -- app.js покажет экран входа.
+    // Plan 15: the session has ended or is missing -- app.js will show the sign-in screen.
     dispatchEvent(new CustomEvent('nf:signin-required'));
   }
   if (!res.ok) {
@@ -39,9 +39,9 @@ function q(params) {
   return s ? `?${s}` : '';
 }
 
-/* ------------------------------------------------------------ форматтеры */
+/* ------------------------------------------------------------ formatters */
 
-const nf = new Intl.NumberFormat('ru-RU');
+const nf = new Intl.NumberFormat('en-US');
 
 function num(n) { return n === null || n === undefined ? '—' : nf.format(Math.round(n)); }
 
@@ -54,35 +54,30 @@ function compact(n) {
   return String(Math.round(n));
 }
 
-/* Русские склонения: «1 канал», «3 канала», «12 каналов». */
-function plural(n, one, few, many) {
-  const a = Math.abs(Math.round(n)) % 100;
-  const b = a % 10;
-  if (a > 10 && a < 20) return many;
-  if (b > 1 && b < 5) return few;
-  if (b === 1) return one;
-  return many;
+/* English plurals: "1 channel", "3 channels". */
+function plural(n, one, many) {
+  return Math.abs(Math.round(n)) === 1 ? one : many;
 }
 
-function pl(n, one, few, many) { return `${num(n)} ${plural(n, one, few, many)}`; }
+function pl(n, one, many) { return `${num(n)} ${plural(n, one, many)}`; }
 
-/* RPM-вилка (plan 06): оценка без проверяемого источника, поэтому всегда диапазон. */
+/* RPM range (plan 06): an estimate with no verifiable source, so always a range. */
 function usd(x) { return x == null ? '—' : x >= 10 ? String(Math.round(x)) : (+x).toFixed(1).replace('.0', ''); }
 function rpmRange(r) { return r ? `$${usd(r.low)}–${usd(r.high)}` : '—'; }
-const RPM_TIP = 'Оценка RPM по категории, не измеренная выплата: середина — модель ниши, '
-  + 'вилка ÷2…×2, потому что публичные оценки для одной ниши расходятся до 7 раз';
+const RPM_TIP = 'RPM estimate by category, not a measured payout: the midpoint is the niche model, '
+  + 'range ÷2…×2 because public estimates for one niche differ by up to 7x';
 
-/* Риск шаблонности (plan 01): эвристика по загрузкам, не вердикт YouTube. */
-const RISK_LEVEL = { low: ['низкий', ''], medium: ['средний', 'chip-warn'], high: ['высокий', 'chip-bad'],
-                     'insufficient-data': ['мало данных', ''] };
+/* Template risk (plan 01): a heuristic over uploads, not a YouTube verdict. */
+const RISK_LEVEL = { low: ['low', ''], medium: ['medium', 'chip-warn'], high: ['high', 'chip-bad'],
+                     'insufficient-data': ['not enough data', ''] };
 const RISK_REASON = {
-  similarity: (v) => `заголовки очень похожи друг на друга (близость ${(+v).toFixed(2)})`,
-  templateShare: (v) => `${Math.round(v * 100)}% заголовков повторяют одно начало или конец`,
-  durationCv: (v) => `длительность видео почти не меняется (разброс ${(+v).toFixed(2)})`,
-  cadenceCv: (v) => `видео выходят с ровным ритмом (разброс интервалов ${(+v).toFixed(2)})`,
+  similarity: (v) => `titles are very similar to each other (similarity ${(+v).toFixed(2)})`,
+  templateShare: (v) => `${Math.round(v * 100)}% of titles repeat the same opening or ending`,
+  durationCv: (v) => `video duration barely changes (spread ${(+v).toFixed(2)})`,
+  cadenceCv: (v) => `videos come out on an even rhythm (interval spread ${(+v).toFixed(2)})`,
 };
-const RISK_NOTE = 'Эвристика по публичным паттернам загрузок, не решение YouTube: серии, подкасты '
-  + 'и музыкальные каналы тоже могут получить высокий балл.';
+const RISK_NOTE = 'A heuristic over public upload patterns, not a YouTube decision: series, podcasts '
+  + 'and music channels can also score high.';
 
 function riskChip(level) {
   const [label, cls] = RISK_LEVEL[level] || RISK_LEVEL['insufficient-data'];
@@ -91,53 +86,53 @@ function riskChip(level) {
 
 function templateRiskBlock(r) {
   if (!r || !r.found) return '';
-  const head = sectionHead('Риск шаблонности', 'насколько последние загрузки похожи на один повторяемый шаблон', qmark('templateRisk'));
+  const head = sectionHead('Template risk', 'how closely recent uploads follow one repeatable template', qmark('templateRisk'));
   if (r.level === 'insufficient-data') {
-    return `<div class="card">${head}<div class="section-sub">Мало данных: нужно не меньше 10 свежих
-      видео с эмбеддингами, сейчас ${num(r.videosAnalysed)}.</div></div>`;
+    return `<div class="card">${head}<div class="section-sub">Not enough data: at least 10 recent
+      videos with embeddings are needed, currently ${num(r.videosAnalysed)}.</div></div>`;
   }
   return `<div class="card">${head}
     <div class="tiles">
-      ${tile('Балл', `${r.score}<span class="tile-unit"> / 100</span>`, riskChip(r.level))}
-      ${tile('Видео в оценке', num(r.videosAnalysed), r.format === 'long-form' ? 'без Shorts' : 'все форматы')}
+      ${tile('Score', `${r.score}<span class="tile-unit"> / 100</span>`, riskChip(r.level))}
+      ${tile('Videos scored', num(r.videosAnalysed), r.format === 'long-form' ? 'excluding Shorts' : 'all formats')}
     </div>
     ${r.reasons.length ? `<ul class="digest-list">${r.reasons.map((x) =>
       `<li style="white-space:normal">${esc((RISK_REASON[x.signal] || (() => x.text))(x.value))}</li>`).join('')}</ul>`
-      : '<div class="section-sub" style="margin-top:8px">Ни один сигнал шаблонности не выражен.</div>'}
+      : '<div class="section-sub" style="margin-top:8px">No template signal stands out.</div>'}
     <div class="section-sub" style="margin-top:8px">${RISK_NOTE}</div></div>`;
 }
 
-/* План 22: сигналы по трём категориям «неаутентичного» контента из правил
-   монетизации YouTube. Уровни, причины и текст правила -- без общего «процента
-   риска»: решение принимает YouTube, вручную. */
+/* Plan 22: signals for the three "inauthentic" content categories from the
+   YouTube monetization rules. Levels, reasons and the rule text -- no overall "risk
+   percentage": YouTube decides, manually. */
 const POLICY_CAT = {
-  generic_repetitive: 'Шаблонный, повторяющийся контент',
-  unsatisfying: 'Шок и эмоциональные манипуляции',
-  ai_persona_sensitive: 'ИИ-персона в чувствительной теме',
+  generic_repetitive: 'Templated, repetitive content',
+  unsatisfying: 'Shock and emotional manipulation',
+  ai_persona_sensitive: 'AI persona on a sensitive topic',
 };
-const POLICY_LEVEL = { high: ['chip-bad', 'заметные сигналы'], watch: ['', 'стоит присмотреться'],
-  none: ['chip-good', 'сигналов нет'], 'insufficient-data': ['', 'мало данных'] };
-/* Пересказ правил YouTube по-русски; оригинал -- по ссылке «справка YouTube». */
+const POLICY_LEVEL = { high: ['chip-bad', 'clear signals'], watch: ['', 'worth watching'],
+  none: ['chip-good', 'no signals'], 'insufficient-data': ['', 'not enough data'] };
+/* A paraphrase of the YouTube rules; the original is behind the "YouTube help" link. */
 const POLICY_TEXT = {
-  generic_repetitive: 'видео, которые кажутся взаимозаменяемыми; сделанные по типовому или неоригинальному шаблону',
-  unsatisfying: 'контент, который держится на эмоциональных манипуляциях или сделан ради шока',
-  ai_persona_sensitive: 'ИИ-персоны, которые дают советы по здоровью, праву, финансам или политике как эксперты',
+  generic_repetitive: 'videos that look interchangeable; made from a stock or unoriginal template',
+  unsatisfying: 'content that relies on emotional manipulation or is made for shock',
+  ai_persona_sensitive: 'AI personas that give health, legal, financial or political advice as experts',
 };
-const POLICY_TOPIC = { health: 'здоровье', legal: 'право', finance: 'финансы', politics: 'политику' };
+const POLICY_TOPIC = { health: 'health', legal: 'law', finance: 'finance', politics: 'politics' };
 const POLICY_REASON = {
-  thumbSimilarity: (x) => `обложки похожи друг на друга (близость ${(+x.value).toFixed(2)})`,
-  shockShare: (x) => `${Math.round(x.value * 100)}% свежих заголовков с шок-маркерами`,
-  sensitiveShare: (x) => `${Math.round(x.value * 100)}% свежих видео про ${POLICY_TOPIC[x.topic] || x.topic}`,
-  syntheticShare: (x) => `${Math.round(x.value * 100)}% видео с раскрытым ИИ-контентом`,
-  faceless: () => 'канал размечен как безликий',
+  thumbSimilarity: (x) => `thumbnails look alike (similarity ${(+x.value).toFixed(2)})`,
+  shockShare: (x) => `${Math.round(x.value * 100)}% of recent titles with shock markers`,
+  sensitiveShare: (x) => `${Math.round(x.value * 100)}% of recent videos about ${POLICY_TOPIC[x.topic] || x.topic}`,
+  syntheticShare: (x) => `${Math.round(x.value * 100)}% of videos with disclosed AI content`,
+  faceless: () => 'channel is labelled faceless',
 };
 function policyReason(x) {
   if (POLICY_REASON[x.signal]) return POLICY_REASON[x.signal](x);
   if (RISK_REASON[x.signal]) return RISK_REASON[x.signal](x.value);
   return x.text || '';
 }
-const POLICY_NOTE = 'Это сигналы, видимые по открытым данным, а не решение YouTube: монетизацию проверяют люди. '
-  + 'ИИ-персону по открытым данным не увидеть, поэтому эта категория не бывает выше «стоит присмотреться».';
+const POLICY_NOTE = 'These are signals visible in public data, not a YouTube decision: people review monetization. '
+  + 'An AI persona cannot be seen in public data, so this category never rises above "worth watching".';
 
 function policyBlock(r) {
   if (!r || !r.found) return '';
@@ -146,23 +141,23 @@ function policyBlock(r) {
     return `<div class="row"><div class="row-main">
       <div class="row-title">${esc(POLICY_CAT[k] || k)} <span class="chip ${cls}">${esc(label)}</span></div>
       <div class="row-sub">${c.reasons.length ? esc(c.reasons.map(policyReason).join('; ')) : ''}${
-        c.examples.length && c.level !== 'none' ? `${c.reasons.length ? ' · ' : ''}например: «${esc(c.examples[0])}»` : ''}</div>
-      <div class="row-sub">Правило: ${esc(POLICY_TEXT[k] || c.policy)} · <a href="${esc(c.policyUrl)}" target="_blank" rel="noopener">справка YouTube</a></div>
+        c.examples.length && c.level !== 'none' ? `${c.reasons.length ? ' · ' : ''}for example: “${esc(c.examples[0])}”` : ''}</div>
+      <div class="row-sub">Rule: ${esc(POLICY_TEXT[k] || c.policy)} · <a href="${esc(c.policyUrl)}" target="_blank" rel="noopener">YouTube help</a></div>
     </div></div>`;
   }).join('');
-  return `<div class="card">${sectionHead('Сигналы по правилам монетизации', 'три категории «неаутентичного» контента YouTube', qmark('policySignals'))}
+  return `<div class="card">${sectionHead('Monetization-policy signals', 'three categories of YouTube "inauthentic" content', qmark('policySignals'))}
     <div class="rows">${rows}</div><div class="section-sub" style="margin-top:8px">${esc(POLICY_NOTE)}</div></div>`;
 }
 
 function nichePolicyBlock(n) {
   if (!n || !n.found) return '';
-  return `<div class="card">${sectionHead('Сигналы по правилам монетизации в нише', 'сколько каналов ниши показывают сигналы каждой категории', qmark('policySignals'))}
+  return `<div class="card">${sectionHead('Monetization-policy signals in the niche', 'how many niche channels show signals in each category', qmark('policySignals'))}
     ${table([
-      { label: 'Категория', wrap: true, render: (r) => esc(POLICY_CAT[r.key] || r.key) },
-      { label: 'Заметные', num: true, render: (r) => num(r.high) },
-      { label: 'Присмотреться', num: true, render: (r) => num(r.watch) },
-      { label: 'Доля', num: true, render: (r) => (r.shareFlagged == null ? '—' : `${Math.round(r.shareFlagged * 100)}%`) },
-      { label: 'Каналы', wrap: true, render: (r) => r.channels.map((c) =>
+      { label: 'Category', wrap: true, render: (r) => esc(POLICY_CAT[r.key] || r.key) },
+      { label: 'Clear', num: true, render: (r) => num(r.high) },
+      { label: 'Watch', num: true, render: (r) => num(r.watch) },
+      { label: 'Share', num: true, render: (r) => (r.shareFlagged == null ? '—' : `${Math.round(r.shareFlagged * 100)}%`) },
+      { label: 'Channels', wrap: true, render: (r) => r.channels.map((c) =>
         `<a href="#/channel/${esc(c.channelId)}">${esc(c.channelTitle || c.channelId)}</a>`).join(', ') || '—' },
     ], Object.entries(n.categories).map(([key, c]) => ({ key, ...c })))}
     <div class="section-sub" style="margin-top:8px">${esc(POLICY_NOTE)}</div></div>`;
@@ -170,23 +165,23 @@ function nichePolicyBlock(n) {
 
 function nicheTemplateRiskBlock(n) {
   if (!n || !n.found) return '';
-  const head = sectionHead('Риск шаблонности каналов ниши',
-    'какая доля каналов выглядит как конвейер — там, где их много, копировать формат опасно');
+  const head = sectionHead('Template risk of niche channels',
+    'what share of channels look like an assembly line — where there are many, copying the format is risky');
   if (!n.channelsAnalysed) {
-    return `<div class="card">${head}<div class="section-sub">Мало данных: ни у одного канала нет 10+ свежих видео.</div></div>`;
+    return `<div class="card">${head}<div class="section-sub">Not enough data: no channel has 10+ recent videos.</div></div>`;
   }
   return `<div class="card">${head}
     <div class="tiles">
-      ${tile('Высокий риск', `${n.highRiskSharePercent}%`, `${num(n.levels.high)} из ${num(n.channelsAnalysed)} каналов`)}
-      ${tile('Средний', num(n.levels.medium))}
-      ${tile('Низкий', num(n.levels.low))}
-      ${tile('Мало данных', num(n.channelsInsufficient), 'меньше 10 видео')}
+      ${tile('High risk', `${n.highRiskSharePercent}%`, `${num(n.levels.high)} of ${num(n.channelsAnalysed)} channels`)}
+      ${tile('Medium', num(n.levels.medium))}
+      ${tile('Low', num(n.levels.low))}
+      ${tile('Not enough data', num(n.channelsInsufficient), 'fewer than 10 videos')}
     </div>
     ${table([
-      { label: 'Самые шаблонные каналы', wrap: true, render: (c) => `<a href="#/channel/${esc(c.channelId)}">${esc(c.title || c.channelId)}</a>` },
-      { label: 'Подписчиков', num: true, render: (c) => compact(c.subscribers) },
-      { label: 'Балл', num: true, render: (c) => num(c.score) },
-      { label: 'Риск', render: (c) => riskChip(c.level) },
+      { label: 'Most templated channels', wrap: true, render: (c) => `<a href="#/channel/${esc(c.channelId)}">${esc(c.title || c.channelId)}</a>` },
+      { label: 'Subscribers', num: true, render: (c) => compact(c.subscribers) },
+      { label: 'Score', num: true, render: (c) => num(c.score) },
+      { label: 'Risk', render: (c) => riskChip(c.level) },
     ], n.mostTemplated)}
     <div class="section-sub" style="margin-top:8px">${RISK_NOTE}</div></div>`;
 }
@@ -197,13 +192,13 @@ function ago(iso) {
   if (!iso) return '—';
   const h = (Date.now() - new Date(iso).getTime()) / 36e5;
   if (!isFinite(h)) return '—';
-  if (h < 1) return `${Math.max(1, Math.round(h * 60))} мин назад`;
-  if (h < 48) return `${Math.round(h)} ч назад`;
+  if (h < 1) return `${Math.max(1, Math.round(h * 60))} min ago`;
+  if (h < 48) return `${Math.round(h)} h ago`;
   const d = h / 24;
-  if (d < 45) return `${Math.round(d)} дн назад`;
-  if (d < 365) return `${Math.round(d / 30)} мес назад`;
+  if (d < 45) return `${Math.round(d)} d ago`;
+  if (d < 365) return `${Math.round(d / 30)} mo ago`;
   const y = d / 365;
-  return `${y.toFixed(y < 2 ? 1 : 0)} г назад`;
+  return `${y.toFixed(y < 2 ? 1 : 0)} y ago`;
 }
 
 function esc(s) {
@@ -211,22 +206,22 @@ function esc(s) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-/* Дельта всегда со знаком и словом — цвет никогда не единственный носитель смысла. */
+/* A delta always carries a sign and a word — colour is never the only carrier of meaning. */
 function delta(v, unit = '%') {
-  if (v === null || v === undefined) return '<span class="chip">нет данных</span>';
+  if (v === null || v === undefined) return '<span class="chip">no data</span>';
   const up = v > 0, flat = Math.abs(v) < 0.05;
   const cls = flat ? '' : up ? 'chip-good' : 'chip-bad';
   const sign = flat ? '' : up ? '▲ +' : '▼ ';
   return `<span class="chip ${cls}">${sign}${(+v).toFixed(1)}${unit}</span>`;
 }
 
-/* --------------------------------------------------------------- тултип */
+/* --------------------------------------------------------------- tooltip */
 
 const tip = $('#tooltip');
 
-/* data-tip -- атрибут: браузер раскодирует &lt; обратно в «<», и название видео
-   вида <img onerror=…> стало бы разметкой. Поэтому всё экранируется заново, а
-   разрешены только <br> и <b>, которыми подсказки оформлены. */
+/* data-tip is an attribute: the browser decodes &lt; back to "<", and a video title
+   like <img onerror=…> would become markup. So everything is escaped again and
+   only <br> and <b>, which the tips use for formatting, are allowed. */
 function safeTip(text) {
   return esc(text).replace(/&lt;(\/?)(br|b)\s*\/?&gt;/g, '<$1$2>');
 }
@@ -243,7 +238,7 @@ function showTip(evt, html) {
 }
 function hideTip() { tip.hidden = true; }
 
-/* Делегирование: любой элемент с data-tip получает ховер-подсказку. */
+/* Delegation: any element with data-tip gets a hover tooltip. */
 document.addEventListener('mousemove', (e) => {
   const el = e.target.closest?.('[data-tip]');
   if (el) showTip(e, el.dataset.tip); else hideTip();
@@ -251,7 +246,7 @@ document.addEventListener('mousemove', (e) => {
 document.addEventListener('mouseleave', hideTip);
 document.addEventListener('scroll', hideTip, true);
 
-/* План 20: «сравнить» на карточке видео — в корзину сравнения и на её экран. */
+/* Plan 20: "compare" on a video card -- adds to the compare basket and opens its screen. */
 document.addEventListener('click', (e) => {
   const el = e.target.closest?.('[data-compare]');
   if (!el) return;
@@ -259,7 +254,7 @@ document.addEventListener('click', (e) => {
   location.hash = compareHref(el.dataset.compare);
 });
 
-/* ---------------------------------------------------------------- тосты */
+/* ---------------------------------------------------------------- toasts */
 
 function toast(msg, kind = '') {
   const el = document.createElement('div');
@@ -269,7 +264,7 @@ function toast(msg, kind = '') {
   setTimeout(() => el.remove(), kind === 'err' ? 9000 : 4500);
 }
 
-/* ------------------------------------------------------------ компоненты */
+/* ------------------------------------------------------------ components */
 
 function tile(label, value, note) {
   return `<div class="tile">
@@ -293,9 +288,9 @@ function notice(text, kind = '') {
 
 function empty(text) { return `<div class="empty">${esc(text)}</div>`; }
 
-/* Горизонтальные бары — одна серия, поэтому легенда не нужна: заголовок называет её. */
+/* Horizontal bars -- a single series, so no legend: the title names it. */
 function barList(items) {
-  if (!items.length) return empty('нет данных');
+  if (!items.length) return empty('no data');
   const max = Math.max(...items.map((i) => i.value || 0), 1);
   return `<div class="barlist">${items.map((i) => `
     <div class="barrow" data-tip="${esc(i.tip || `${i.name}: ${num(i.value)}`)}">
@@ -311,18 +306,18 @@ function strengthBar(level) {
 }
 
 function channelRow(c) {
-  const subs = c.subscribers === null ? 'подписчики скрыты' : `${compact(c.subscribers)} подписчиков`;
+  const subs = c.subscribers === null ? 'subscribers hidden' : `${compact(c.subscribers)} subscribers`;
   return `<div class="row">
     <div class="avatar">${esc((c.channelTitle || '?').slice(0, 1).toUpperCase())}</div>
     <div class="row-main">
       <div class="row-title"><a href="#/channel/${esc(c.channelId)}">${esc(c.channelTitle || c.channelId)}</a></div>
       <div class="row-sub">${subs}${c.category ? ` · ${esc(c.category)}` : ''}${
-        c.videosInWindow ? ` · ${c.videosInWindow} видео в окне` : ''}</div>
+        c.videosInWindow ? ` · ${c.videosInWindow} videos in window` : ''}</div>
     </div>
     <div class="row-metrics">
       <div class="metric" data-tip="${c.multiplierBasis === 'lifetime-mean'
-        ? 'Посчитан против СРЕДНЕГО за всю жизнь канала (формула NexLev).&lt;br&gt;В базе слишком мало его видео для медианной базы — нужно 4+.&lt;br&gt;Такое число завышается одним виральным роликом: соберите канал целиком.'
-        : 'Лучший возрастно-нормированный множитель среди видео канала в окне.&lt;br&gt;Считается против медианы предыдущих загрузок этого же канала.'}">
+        ? 'Computed against the channel\'s lifetime MEAN (NexLev formula).&lt;br&gt;Too few of its videos in the database for a median baseline — 4+ are needed.&lt;br&gt;Such a number is inflated by one viral video: collect the whole channel.'
+        : 'Best age-normalised multiplier among the channel\'s videos in the window.&lt;br&gt;Computed against the median of the same channel\'s previous uploads.'}">
         <div class="metric-value">${mult(c.multiplier)}${
           c.multiplierBasis === 'lifetime-mean' ? '<span class="approx">≈</span>' : ''}</div>
         ${strengthBar(c.strength)}
@@ -334,9 +329,9 @@ function channelRow(c) {
 function videoCard(v) {
   const thumb = v.thumbnail
     ? `<img src="${esc(v.thumbnail)}" alt="" loading="lazy">`
-    : `<div class="thumb-fallback">без обложки</div>`;
+    : `<div class="thumb-fallback">no thumbnail</div>`;
   const vph = v.vph24h ?? v.vphLifetime;
-  const vphLabel = v.vph24h != null ? 'VPH за 24ч' : 'VPH за всё время';
+  const vphLabel = v.vph24h != null ? 'VPH, 24h' : 'VPH, all time';
   return `<article class="vcard">
     <a class="thumb" href="https://www.youtube.com/watch?v=${esc(v.videoId)}" target="_blank" rel="noopener">
       ${thumb}
@@ -344,11 +339,11 @@ function videoCard(v) {
       ${v.outlierScore != null ? `<span class="badge badge-right" data-tip="${scoreTip('outlierScore')}">${mult(v.outlierScore)}</span>` : ''}
     </a>
     <div class="vcard-title">${esc(v.title)}</div>
-    <div class="vcard-meta">${compact(v.views)} просмотров · ${ago(v.publishedAt)}
-      · <a href="#/brief/${esc(v.videoId)}" data-tip="Собрать бриф для своего видео из этого outlier">бриф</a>
-      · <a href="#" data-compare="${esc(v.videoId)}" data-tip="Сравнить траекторию просмотров с другими видео (до 5)">сравнить</a></div>
+    <div class="vcard-meta">${compact(v.views)} views · ${ago(v.publishedAt)}
+      · <a href="#/brief/${esc(v.videoId)}" data-tip="Build a brief for your own video from this outlier">brief</a>
+      · <a href="#" data-compare="${esc(v.videoId)}" data-tip="Compare the view trajectory with other videos (up to 5)">compare</a></div>
     <div class="vcard-meta"><a href="#/channel/${esc(v.channelId)}">${esc(v.channelTitle || '')}</a>
-      · ${compact(v.channelSubscribers)} подп.</div>
+      · ${compact(v.channelSubscribers)} subs</div>
     <div class="vcard-chips">
       <span class="chip chip-accent est" data-tip="${scoreTip('vsr')}">VSR ${(+v.viewsPerSubscriber).toFixed(1)}</span>
       ${v.outlierBand ? `<span class="chip">${esc(v.outlierBand)}</span>` : ''}
@@ -360,17 +355,17 @@ function videoCard(v) {
   </article>`;
 }
 
-/* Бейдж AI-разметки канала (этап 03) -- "faceless · voiceover_stock".
-   Пусто, если канал ещё не размечен (aiLabels отсутствует/null). */
+/* Channel AI-label badge (stage 03) -- "faceless · voiceover_stock".
+   Empty if the channel is not labelled yet (aiLabels missing/null). */
 function aiLabelsBadge(ai) {
   if (!ai || !ai.contentFormat) return '';
   const parts = [ai.isFaceless ? 'faceless' : 'on-camera', ai.contentFormat];
-  const tip = `AI-разметка${ai.topic ? ` · тема: ${ai.topic}` : ''}${ai.labeledAt ? ` · ${ago(ai.labeledAt)}` : ''}`;
+  const tip = `AI labels${ai.topic ? ` · topic: ${ai.topic}` : ''}${ai.labeledAt ? ` · ${ago(ai.labeledAt)}` : ''}`;
   return `<span class="chip" data-tip="${esc(tip)}">${esc(parts.join(' · '))}</span>`;
 }
 
 function commentList(comments) {
-  if (!comments.length) return empty('нет комментариев');
+  if (!comments.length) return empty('no comments');
   return `<div class="comments-list">${comments.map((c) => `
     <div class="comment-row">
       <div class="comment-meta">${esc(c.author || '—')} · ${ago(c.publishedAt)} · 👍 ${num(c.likeCount || 0)}</div>
@@ -379,7 +374,7 @@ function commentList(comments) {
 }
 
 function table(cols, rows) {
-  if (!rows.length) return empty('нет данных');
+  if (!rows.length) return empty('no data');
   return `<div class="table-wrap"><table>
     <thead><tr>${cols.map((c) => `<th class="${c.num ? 'num' : ''}">${esc(c.label)}${c.tip ? ` ${qmark(c.tip)}` : ''}</th>`).join('')}</tr></thead>
     <tbody>${rows.map((r) => `<tr>${cols.map((c) => {
@@ -389,14 +384,14 @@ function table(cols, rows) {
   </table></div>`;
 }
 
-/* С 24.08.2026 YouTube засчитывает просмотр с первого кадра (план 18): снимки
-   по обе стороны этой даты считались по разным правилам. */
-const VIEW_COUNT_CHANGE = { t: '2026-08-24T00:00:00Z', label: 'YouTube изменил подсчёт просмотров' };
+/* From 24.08.2026 YouTube counts a view from the first frame (plan 18): snapshots
+   on either side of that date were counted under different rules. */
+const VIEW_COUNT_CHANGE = { t: '2026-08-24T00:00:00Z', label: 'YouTube changed view counting' };
 
-/* Линейный график с перекрестием — одна серия, поэтому без легенды.
-   marks: [{t, label}] — вертикальные отметки дат, рисуются только внутри оси X. */
-function lineChart(points, { height = 180, valueLabel = 'значение', marks = [] } = {}) {
-  if (!points || points.length < 2) return empty('нужно минимум две точки истории');
+/* Line chart with a crosshair -- a single series, so no legend.
+   marks: [{t, label}] -- vertical date marks, drawn only inside the X axis. */
+function lineChart(points, { height = 180, valueLabel = 'value', marks = [] } = {}) {
+  if (!points || points.length < 2) return empty('at least two history points are needed');
   const W = 720, H = height, m = { t: 12, r: 14, b: 22, l: 48 };
   const xs = points.map((p) => new Date(p.t).getTime());
   const ys = points.map((p) => p.v);
@@ -409,7 +404,7 @@ function lineChart(points, { height = 180, valueLabel = 'значение', mark
   const d = points.map((p, i) => `${i ? 'L' : 'M'}${px(xs[i]).toFixed(1)},${py(p.v).toFixed(1)}`).join('');
   const area = `${d}L${px(x1).toFixed(1)},${py(lo).toFixed(1)}L${px(x0).toFixed(1)},${py(lo).toFixed(1)}Z`;
   const ticks = [lo, (lo + hi) / 2, hi];
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(valueLabel)} во времени">
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(valueLabel)} over time">
     ${ticks.map((t) => `<line class="gridline" x1="${m.l}" x2="${W - m.r}" y1="${py(t).toFixed(1)}" y2="${py(t).toFixed(1)}"/>
       <text x="${m.l - 8}" y="${(py(t) + 4).toFixed(1)}" text-anchor="end">${compact(t)}</text>`).join('')}
     <line class="axis" x1="${m.l}" x2="${W - m.r}" y1="${H - m.b}" y2="${H - m.b}"/>
@@ -418,29 +413,29 @@ function lineChart(points, { height = 180, valueLabel = 'значение', mark
     ${marks.map((mk) => ({ ...mk, x: new Date(mk.t).getTime() }))
       .filter((mk) => mk.x > x0 && mk.x < x1)
       .map((mk) => `<line class="mark" x1="${px(mk.x).toFixed(1)}" x2="${px(mk.x).toFixed(1)}" y1="${m.t}" y2="${H - m.b}"
-        data-tip="${esc(new Date(mk.x).toLocaleDateString('ru-RU'))}&lt;br&gt;${esc(mk.label)}"/>`).join('')}
+        data-tip="${esc(new Date(mk.x).toLocaleDateString('en-US'))}&lt;br&gt;${esc(mk.label)}"/>`).join('')}
     ${points.map((p, i) => `<circle class="dot" cx="${px(xs[i]).toFixed(1)}" cy="${py(p.v).toFixed(1)}" r="4"
-      data-tip="${esc(new Date(p.t).toLocaleString('ru-RU'))}&lt;br&gt;&lt;b&gt;${num(p.v)}&lt;/b&gt; ${esc(valueLabel)}"/>`).join('')}
-    <text x="${m.l}" y="${H - 6}">${esc(new Date(x0).toLocaleDateString('ru-RU'))}</text>
-    <text x="${W - m.r}" y="${H - 6}" text-anchor="end">${esc(new Date(x1).toLocaleDateString('ru-RU'))}</text>
+      data-tip="${esc(new Date(p.t).toLocaleString('en-US'))}&lt;br&gt;&lt;b&gt;${num(p.v)}&lt;/b&gt; ${esc(valueLabel)}"/>`).join('')}
+    <text x="${m.l}" y="${H - 6}">${esc(new Date(x0).toLocaleDateString('en-US'))}</text>
+    <text x="${W - m.r}" y="${H - 6}" text-anchor="end">${esc(new Date(x1).toLocaleDateString('en-US'))}</text>
   </svg>`;
 }
 
-/* План 20: траектории видео — просмотры по возрасту (часы с публикации) из снимков
-   воркера. У каждого видео свой цвет; пунктир того же цвета — ожидаемая кривая канала
-   (медиана канала × кривая взросления). Ось X — возраст, а не дата: так видео разных
-   дней сравниваются в одном возрасте. Отметки — смена заголовка/обложки. */
+/* Plan 20: video trajectories -- views by age (hours since publication) from the
+   worker's snapshots. Each video has its own colour; a dashed line of the same colour is the channel's expected curve
+   (channel median × maturation curve). The X axis is age, not date: that way videos from different
+   days are compared at the same age. Marks -- title/thumbnail changes. */
 const SERIES = ['var(--series-1)', 'var(--series-2)', 'var(--series-3)', 'var(--series-4)', 'var(--series-5)'];
-const MARK_LABEL = { title: 'сменили заголовок', thumbnail: 'сменили обложку',
-  thumbnail_image: 'сменили обложку', view_count_change: 'YouTube изменил подсчёт просмотров' };
+const MARK_LABEL = { title: 'title changed', thumbnail: 'thumbnail changed',
+  thumbnail_image: 'thumbnail changed', view_count_change: 'YouTube changed view counting' };
 
 function ageLabel(h) {
-  return h < 48 ? `${Math.round(h)} ч` : `${Math.round(h / 24)} дн`;
+  return h < 48 ? `${Math.round(h)} h` : `${Math.round(h / 24)} d`;
 }
 
 function trajectoryChart(videos, { height = 260 } = {}) {
   const withPts = (videos || []).filter((v) => v.points.length >= 2);
-  if (!withPts.length) return empty('нужно минимум два снимка — воркер снимает видео каждые 3 часа первую неделю');
+  if (!withPts.length) return empty('at least two snapshots are needed — the worker snapshots videos every 3 hours during the first week');
   const W = 720, H = height, m = { t: 12, r: 14, b: 26, l: 52 };
   const all = withPts.flatMap((v) => [...v.points, ...v.expected]);
   const x1 = Math.max(...withPts.flatMap((v) => v.points.map((p) => p.ageHours)), 1);
@@ -456,14 +451,14 @@ function trajectoryChart(videos, { height = 260 } = {}) {
     return `${v.expected.length ? `<path class="tline expected" d="${path(v.expected)}" style="stroke:${c}"/>` : ''}
       <path class="tline" d="${path(v.points)}" style="stroke:${c}"/>
       ${v.points.map((p) => `<circle class="tdot" cx="${px(p.ageHours).toFixed(1)}" cy="${py(p.views).toFixed(1)}" r="3"
-        style="fill:${c}" data-tip="${esc(v.title || v.videoId)}&lt;br&gt;${esc(ageLabel(p.ageHours))}: &lt;b&gt;${num(p.views)}&lt;/b&gt; просмотров"/>`).join('')}
+        style="fill:${c}" data-tip="${esc(v.title || v.videoId)}&lt;br&gt;${esc(ageLabel(p.ageHours))}: &lt;b&gt;${num(p.views)}&lt;/b&gt; views"/>`).join('')}
       ${v.marks.filter((mk) => mk.ageHours >= 0 && mk.ageHours <= x1).map((mk) => `<line class="mark" x1="${px(mk.ageHours).toFixed(1)}"
         x2="${px(mk.ageHours).toFixed(1)}" y1="${m.t}" y2="${H - m.b}" style="stroke:${c}"
         data-tip="${esc(v.title || v.videoId)}&lt;br&gt;${esc(ageLabel(mk.ageHours))}: ${esc(MARK_LABEL[mk.kind] || mk.kind)}"/>`).join('')}`;
   }).join('');
   const legend = withPts.map((v, i) => `<span><i style="background:${SERIES[i % SERIES.length]}"></i>${esc(v.title || v.videoId)}${
-    v.observedFromHours > 24 ? ` · наблюдаем с ${esc(ageLabel(v.observedFromHours))}` : ''}</span>`).join('');
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="просмотры по возрасту видео">
+    v.observedFromHours > 24 ? ` · observed from ${esc(ageLabel(v.observedFromHours))}` : ''}</span>`).join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="views by video age">
     ${ticks.map((t) => `<line class="gridline" x1="${m.l}" x2="${W - m.r}" y1="${py(t).toFixed(1)}" y2="${py(t).toFixed(1)}"/>
       <text x="${m.l - 8}" y="${(py(t) + 4).toFixed(1)}" text-anchor="end">${compact(t)}</text>`).join('')}
     <line class="axis" x1="${m.l}" x2="${W - m.r}" y1="${H - m.b}" y2="${H - m.b}"/>
@@ -471,12 +466,12 @@ function trajectoryChart(videos, { height = 260 } = {}) {
     ${series}
   </svg>
   <div class="chart-legend">${legend}${withPts.some((v) => v.expected.length)
-    ? '<span><i style="background:var(--muted)"></i>пунктир — ожидание по каналу (оценка)</span>'
-    : '<span>ожидания по каналу нет: у канала собрано меньше 4 видео</span>'}</div>`;
+    ? '<span><i style="background:var(--muted)"></i>dashed line — channel expectation (estimate)</span>'
+    : '<span>no channel expectation: fewer than 4 videos collected for the channel</span>'}</div>`;
 }
 
-/* Корзина сравнения (план 20): до 5 видео в localStorage; ссылка «сравнить»
-   открывает #/compare с этим видео и теми, что уже в корзине. */
+/* Compare basket (plan 20): up to 5 videos in localStorage; the "compare" link
+   opens #/compare with this video and those already in the basket. */
 function compareHref(videoId) {
   let ids = [];
   try { ids = JSON.parse(localStorage.getItem('nf.compare') || '[]'); } catch { ids = []; }
@@ -484,49 +479,49 @@ function compareHref(videoId) {
   return `#/compare/${ids.map(encodeURIComponent).join(',')}`;
 }
 
-/* План 23: каталог оценок -- что каждое число: данные YouTube или оценка
-   niche-finder, формула и с какой выборки она что-то значит. Грузится один раз
-   при старте (/api/scores); до загрузки подсказка -- запасной текст. */
+/* Plan 23: the score catalog -- what each number is: YouTube data or an estimate by
+   niche-finder, its formula, and the sample size from which it means anything. Loaded once
+   at startup (/api/scores); until it loads the hint is a fallback text. */
 let SCORES = null;
 
 async function loadScores() {
   try { SCORES = (await api('/api/scores')).scores; } catch { SCORES = {}; }
 }
 
-/* «?» рядом с числом: подсказка из каталога (что это, данные YouTube или оценка). */
+/* "?" next to a number: a hint from the catalog (what it is, YouTube data or an estimate). */
 function qmark(key) {
-  return `<span class="qmark" data-tip="${scoreTip(key)}" aria-label="как считается">?</span>`;
+  return `<span class="qmark" data-tip="${scoreTip(key)}" aria-label="how it is calculated">?</span>`;
 }
 
 function scoreTip(key, lead = '') {
   const e = SCORES?.[key];
   if (!e) return esc(lead);
-  const src = e.source === 'youtube' ? 'данные YouTube' : 'оценка niche-finder, не данные YouTube';
+  const src = e.source === 'youtube' ? 'YouTube data' : 'niche-finder estimate, not YouTube data';
   return [lead ? esc(lead) : '', `&lt;b&gt;${esc(e.name)}&lt;/b&gt; — ${esc(src)}`, esc(e.formula),
-    e.minSample ? `нужно: ${esc(e.minSample)}` : ''].filter(Boolean).join('&lt;br&gt;');
+    e.minSample ? `needed: ${esc(e.minSample)}` : ''].filter(Boolean).join('&lt;br&gt;');
 }
 
-/* Стабильный цвет на channelId -- один и тот же канал везде одного цвета
-   без палитры/легенды (в scatter'е их может быть десятки). */
+/* A stable colour per channelId -- the same channel has the same colour everywhere
+   without a palette/legend (a scatter can have dozens of them). */
 function _channelColor(id) {
   let h = 0;
   for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) % 360;
   return `hsl(${h} 65% 55%)`;
 }
 
-/* Точечный график ниши (этап 15): X — дата публикации, Y — просмотры (лог.
-   шкала, иначе один вирусный ролик сплющивает всё остальное в одну линию).
-   Полые точки — моложе 30 дней (только выросли, сравнивать рано). Крупный
-   контур — аномалия по periodScore (или rolling, если period нет). Свой SVG,
-   без сторонних библиотек графиков -- та же техника viewBox, что и lineChart:
-   ширина тянется по контейнеру через CSS (.chart{width:100%}), без JS на
+/* Niche scatter plot (stage 15): X is the publication date, Y is views (log
+   scale, otherwise one viral video flattens everything else into a line).
+   Hollow dots are younger than 30 days (just grew, too early to compare). A large
+   outline marks an anomaly by periodScore (or rolling if there is no period). Own SVG,
+   no third-party chart libraries -- the same viewBox technique as lineChart:
+   the width stretches to the container via CSS (.chart{width:100%}), no JS on
    resize. */
 function scatterChart(videos, { height = 340, outlierThreshold = 3 } = {}) {
-  if (!videos.length) return empty('нет видео в нише за этот период');
+  if (!videos.length) return empty('no videos in the niche for this period');
   const W = 720, H = height, m = { t: 12, r: 14, b: 26, l: 52 };
 
   const xs = videos.map((v) => new Date(v.publishedAt).getTime()).filter(Number.isFinite);
-  if (!xs.length) return empty('у видео нет дат публикации');
+  if (!xs.length) return empty('videos have no publication dates');
   const x0 = Math.min(...xs), x1 = Math.max(Math.max(...xs), x0 + 86400000);
   const ys = videos.map((v) => Math.log10(Math.max(1, v.views || 0)));
   const y0 = Math.min(...ys), y1 = Math.max(Math.max(...ys), Math.min(...ys) + 1);
@@ -541,15 +536,15 @@ function scatterChart(videos, { height = 340, outlierThreshold = 3 } = {}) {
     const isOutlier = (score || 0) >= outlierThreshold;
     const color = _channelColor(v.channelId);
     const tip = `${esc(v.title)}&lt;br&gt;${esc(v.channelTitle || v.channelId)}&lt;br&gt;`
-      + `${num(views)} просмотров · outlier ${score != null ? mult(score) : '—'}&lt;br&gt;`
-      + `${Math.round((v.durationSeconds || 0) / 60)} мин${isNew ? ' · моложе 30 дней' : ''}`;
+      + `${num(views)} views · outlier ${score != null ? mult(score) : '—'}&lt;br&gt;`
+      + `${Math.round((v.durationSeconds || 0) / 60)} min${isNew ? ' · younger than 30 days' : ''}`;
     return { cx: px(t), cy: py(Math.log10(views)), color, isNew, isOutlier, tip };
   }).filter((p) => Number.isFinite(p.cx) && Number.isFinite(p.cy));
 
   const yTicks = [y0, (y0 + y1) / 2, y1];
 
   return `<svg class="chart chart-scatter" viewBox="0 0 ${W} ${H}" role="img"
-      aria-label="Просмотры видео ниши по датам публикации, логарифмическая шкала">
+      aria-label="Niche video views by publication date, logarithmic scale">
     ${yTicks.map((t) => `<line class="gridline" x1="${m.l}" x2="${W - m.r}"
         y1="${py(t).toFixed(1)}" y2="${py(t).toFixed(1)}"/>
       <text x="${m.l - 8}" y="${(py(t) + 4).toFixed(1)}" text-anchor="end">${compact(10 ** t)}</text>`).join('')}
@@ -557,8 +552,8 @@ function scatterChart(videos, { height = 340, outlierThreshold = 3 } = {}) {
     ${points.map((p) => `<circle r="${p.isOutlier ? 6 : 4}" cx="${p.cx.toFixed(1)}" cy="${p.cy.toFixed(1)}"
         fill="${p.isNew ? 'none' : p.color}" stroke="${p.color}" stroke-width="${p.isNew ? 2 : 1}"
         opacity="${p.isOutlier ? 1 : 0.75}" data-tip="${p.tip}"/>`).join('')}
-    <text x="${m.l}" y="${H - 6}">${esc(new Date(x0).toLocaleDateString('ru-RU'))}</text>
-    <text x="${W - m.r}" y="${H - 6}" text-anchor="end">${esc(new Date(x1).toLocaleDateString('ru-RU'))}</text>
+    <text x="${m.l}" y="${H - 6}">${esc(new Date(x0).toLocaleDateString('en-US'))}</text>
+    <text x="${W - m.r}" y="${H - 6}" text-anchor="end">${esc(new Date(x1).toLocaleDateString('en-US'))}</text>
   </svg>`;
 }
 
@@ -566,24 +561,24 @@ function funnelBlock(res) {
   if (!res.funnel) return '';
   const rows = res.funnel.map((f) =>
     `<div class="funnel-step"><span>${esc(f.step)}</span><b>${num(f.remaining)}</b></div>`).join('');
-  return `<div class="card"><div class="section-sub">Воронка фильтров</div>
+  return `<div class="card"><div class="section-sub">Filter funnel</div>
     <div class="funnel">${rows}</div>
     ${res.hint ? `<div style="margin-top:12px">${notice(esc(res.hint))}</div>` : ''}</div>`;
 }
 
-/* Карта спонсоров (plan 09) -- один блок для ниши и канала. Данные из
-   /api/niches/{slug}/sponsors и /api/channels/{id}/sponsors. Всегда подписан
-   как нижняя граница: видно только то, что указано в описании видео. */
-const SPONSOR_FLOOR = 'Нижняя граница: только то, что указано в описании видео. '
-  + 'Интеграция, которую автор лишь произносит в ролике, здесь не видна.';
+/* Sponsor map (plan 09) -- one block for a niche and a channel. Data from
+   /api/niches/{slug}/sponsors and /api/channels/{id}/sponsors. Always labelled
+   as a lower bound: only what is stated in the video description is visible. */
+const SPONSOR_FLOOR = 'Lower bound: only what is stated in the video description. '
+  + 'An integration the author only mentions in the video is not visible here.';
 
 function sponsorBrandBars(brands) {
   return barList((brands || []).map((b) => ({
     name: b.brand, value: b.videos,
-    display: `${num(b.videos)} ${plural(b.videos, 'видео', 'видео', 'видео')}`
-      + (b.channels > 1 ? ` · ${num(b.channels)} ${plural(b.channels, 'канал', 'канала', 'каналов')}` : ''),
-    tip: `${esc(b.brand)}: ${num(b.videos)} видео, ${num(b.channels)} кан.`
-      + (b.lastSeen ? `<br>последнее: ${esc(String(b.lastSeen).slice(0, 10))}` : '')
+    display: `${num(b.videos)} ${plural(b.videos, 'video', 'videos')}`
+      + (b.channels > 1 ? ` · ${num(b.channels)} ${plural(b.channels, 'channel', 'channels')}` : ''),
+    tip: `${esc(b.brand)}: ${num(b.videos)} videos, ${num(b.channels)} ch.`
+      + (b.lastSeen ? `<br>last seen: ${esc(String(b.lastSeen).slice(0, 10))}` : '')
       + (b.examples || []).slice(0, 2).map((e) =>
         `<br>· ${esc(String(e.title || e.videoId).slice(0, 60))}`).join(''),
   })));
@@ -591,73 +586,73 @@ function sponsorBrandBars(brands) {
 
 function sponsorBlock(d, title, sub) {
   const head = sectionHead(title, sub);
-  if (!d) return `<div class="card">${head}${empty('не удалось загрузить данные о спонсорах')}</div>`;
-  if (d.found === false) return `<div class="card">${head}${empty(d.hint || 'данных пока нет')}</div>`;
-  if (!d.videos) return `<div class="card">${head}${empty('в выбранном окне нет видео')}
+  if (!d) return `<div class="card">${head}${empty('failed to load sponsor data')}</div>`;
+  if (d.found === false) return `<div class="card">${head}${empty(d.hint || 'no data yet')}</div>`;
+  if (!d.videos) return `<div class="card">${head}${empty('no videos in the selected window')}
     <div class="section-sub" style="margin-top:10px">${esc(SPONSOR_FLOOR)}</div></div>`;
   const pct = (x) => `${Math.round((x || 0) * 100)}%`;
   const cover = d.scanCoverage < 1
-    ? notice(`Описания просканированы у ${pct(d.scanCoverage)} видео — воркер дочитает остальные `
-      + 'при следующем запуске шага sponsors. Доли считаются по просканированным.') : '';
+    ? notice(`Descriptions scanned for ${pct(d.scanCoverage)} of videos — the worker will read the rest `
+      + 'on the next run of the sponsors step. Shares are computed over scanned videos.') : '';
   const brands = d.topBrands || [];
   const aff = d.affiliateBrands || [];
   return `<div class="card">${head}${cover}
     <div class="tiles">
-      ${tile('Видео со спонсором', pct(d.sponsorShare),
-        `${num(d.videosWithSponsor)} из ${num(d.videos)}`)}
-      ${tile('Просмотры со спонсором', compact(d.avgViewsWithSponsor),
-        `среднее · медиана ${compact(d.medianViewsWithSponsor)}`)}
-      ${tile('Просмотры без спонсора', compact(d.avgViewsWithout),
-        `среднее · медиана ${compact(d.medianViewsWithout)}`)}
-      ${tile('Партнёрские ссылки', pct(d.affiliateShare),
-        `${num(d.videosWithAffiliate)} видео`)}
+      ${tile('Videos with a sponsor', pct(d.sponsorShare),
+        `${num(d.videosWithSponsor)} of ${num(d.videos)}`)}
+      ${tile('Views with a sponsor', compact(d.avgViewsWithSponsor),
+        `mean · median ${compact(d.medianViewsWithSponsor)}`)}
+      ${tile('Views without a sponsor', compact(d.avgViewsWithout),
+        `mean · median ${compact(d.medianViewsWithout)}`)}
+      ${tile('Affiliate links', pct(d.affiliateShare),
+        `${num(d.videosWithAffiliate)} videos`)}
     </div>
     <div class="grid-2" style="margin-top:16px">
-      <div><div class="section-sub" style="margin-bottom:8px">Бренды-спонсоры и промокоды</div>
-        ${brands.length ? sponsorBrandBars(brands) : empty('спонсоров в описаниях не нашлось')}</div>
-      <div><div class="section-sub" style="margin-bottom:8px">Партнёрские ссылки (не спонсорство)</div>
-        ${aff.length ? sponsorBrandBars(aff) : empty('партнёрских ссылок не нашлось')}</div>
+      <div><div class="section-sub" style="margin-bottom:8px">Sponsor brands and promo codes</div>
+        ${brands.length ? sponsorBrandBars(brands) : empty('no sponsors found in descriptions')}</div>
+      <div><div class="section-sub" style="margin-bottom:8px">Affiliate links (not sponsorship)</div>
+        ${aff.length ? sponsorBrandBars(aff) : empty('no affiliate links found')}</div>
     </div>
     <div class="section-sub" style="margin-top:12px">${esc(SPONSOR_FLOOR)}</div>
   </div>`;
 }
 
-/* Тренд насыщенности ниши (план 08): последние 30 дней против 90 до них.
-   Две точки -- это «было → стало» в плитке с изменением, а не график. Статус --
-   бейдж с подписью, не один цвет. */
+/* Niche saturation trend (plan 08): the last 30 days against the 90 before them.
+   Two points are a "was → now" in a change tile, not a chart. The status is
+   a labelled badge, not a single colour. */
 const SAT_STATUS = {
-  growing: ['растёт', 'chip-good'],
-  stable: ['держится', ''],
-  cooling: ['остывает', 'chip-warn'],
-  saturated: ['забита', 'chip-bad'],
-  'insufficient-data': ['мало данных', ''],
+  growing: ['growing', 'chip-good'],
+  stable: ['stable', ''],
+  cooling: ['cooling', 'chip-warn'],
+  saturated: ['saturated', 'chip-bad'],
+  'insufficient-data': ['not enough data', ''],
 };
 const SAT_REASON = {
-  'supply-up': 'видео выходит больше, чем раньше',
-  'supply-down': 'видео выходит меньше, чем раньше',
-  'supply-flat': 'видео выходит столько же',
-  'demand-up': 'просмотры новых видео выше, чем раньше',
-  'demand-down': 'просмотры новых видео ниже, чем раньше',
-  'demand-flat': 'просмотры новых видео на прежнем уровне',
-  'demand-unknown': 'просмотры сравнить не по чему',
-  'entrants-up': 'новых каналов появляется больше',
-  'entrants-down': 'новых каналов появляется меньше',
-  'entrants-flat': 'новые каналы появляются с прежней скоростью',
-  'entrants-unknown': 'даты создания каналов неизвестны',
-  'newcomers-break-out': 'новички часто выстреливают',
-  'newcomers-some': 'новички выстреливают иногда',
-  'newcomers-rarely-break-out': 'новички почти не выстреливают',
-  'newcomers-unknown': 'молодых каналов слишком мало для вывода',
-  'supply-unknown': 'объём сравнить не по чему',
-  'few-videos': 'меньше 20 видео в одном из окон — тренд не считаем',
-  'low-coverage': 'большинство видео мы не застали молодыми — тренд может быть артефактом сбора',
+  'supply-up': 'more videos are published than before',
+  'supply-down': 'fewer videos are published than before',
+  'supply-flat': 'the same number of videos is published',
+  'demand-up': 'views of new videos are higher than before',
+  'demand-down': 'views of new videos are lower than before',
+  'demand-flat': 'views of new videos are at the same level',
+  'demand-unknown': 'nothing to compare views against',
+  'entrants-up': 'more new channels appear',
+  'entrants-down': 'fewer new channels appear',
+  'entrants-flat': 'new channels appear at the same pace',
+  'entrants-unknown': 'channel creation dates are unknown',
+  'newcomers-break-out': 'newcomers often break out',
+  'newcomers-some': 'newcomers sometimes break out',
+  'newcomers-rarely-break-out': 'newcomers rarely break out',
+  'newcomers-unknown': 'too few young channels to conclude',
+  'supply-unknown': 'nothing to compare volume against',
+  'few-videos': 'fewer than 20 videos in one of the windows — no trend computed',
+  'low-coverage': 'we did not catch most videos young — the trend may be a collection artifact',
 };
 
 function saturationChip(s) {
   if (!s) return '';
   const [label, cls] = SAT_STATUS[s.status] || [s.status, ''];
   const low = s.confidence === 'low' && s.status !== 'insufficient-data';
-  return `<span class="chip ${cls}" data-tip="${scoreTip('nicheTrend', low ? 'низкая уверенность: мало видео застали молодыми' : '')}">${esc(label)}${low ? ' ?' : ''}</span>`;
+  return `<span class="chip ${cls}" data-tip="${scoreTip('nicheTrend', low ? 'low confidence: few videos were caught young' : '')}">${esc(label)}${low ? ' ?' : ''}</span>`;
 }
 
 function saturationBlock(s) {
@@ -666,103 +661,103 @@ function saturationBlock(s) {
   const x = (r) => (r == null ? '' : ` · ×${r}`);
   const reasons = (s.reasons || []).map((r) => SAT_REASON[r.code] || r.code);
   return `<div class="card">
-    ${sectionHead('Тренд ниши', `последние 30 дней против 90 до них · ${s.format === 'short' ? 'Shorts' : 'длинные видео'}`,
+    ${sectionHead('Niche trend', `last 30 days against the 90 before them · ${s.format === 'short' ? 'Shorts' : 'long videos'}`,
       saturationChip(s))}
     <div class="tiles">
-      ${tile('Видео за 30 дней', `${num(sig.supply.basePer30d)} → ${num(sig.supply.recent)}`,
-        `было в среднем → сейчас${x(sig.supply.ratio)}`)}
-      ${tile('Просмотры новых видео', `${compact(sig.demand.baseMedian)} → ${compact(sig.demand.recentMedian)}`,
-        `медиана прогноза на 30-й день${x(sig.demand.ratio)}`)}
-      ${tile('Новые каналы за 30 дней', `${num(sig.entrants.basePer30d)} → ${num(sig.entrants.recent)}`,
-        sig.entrants.unknownAge ? `без даты создания: ${num(sig.entrants.unknownAge)}` : 'созданы в окне')}
-      ${tile('Новички выстреливают', sig.newcomers.share == null ? '—' : `${Math.round(sig.newcomers.share * 100)}%`,
-        `${num(sig.newcomers.brokeOut)} из ${num(sig.newcomers.channels)} каналов младше 180 дней, множитель ≥ 2`)}
+      ${tile('Videos in 30 days', `${num(sig.supply.basePer30d)} → ${num(sig.supply.recent)}`,
+        `on average before → now${x(sig.supply.ratio)}`)}
+      ${tile('Views of new videos', `${compact(sig.demand.baseMedian)} → ${compact(sig.demand.recentMedian)}`,
+        `median forecast at day 30${x(sig.demand.ratio)}`)}
+      ${tile('New channels in 30 days', `${num(sig.entrants.basePer30d)} → ${num(sig.entrants.recent)}`,
+        sig.entrants.unknownAge ? `without a creation date: ${num(sig.entrants.unknownAge)}` : 'created in the window')}
+      ${tile('Newcomers break out', sig.newcomers.share == null ? '—' : `${Math.round(sig.newcomers.share * 100)}%`,
+        `${num(sig.newcomers.brokeOut)} of ${num(sig.newcomers.channels)} channels younger than 180 days, multiplier ≥ 2`)}
     </div>
     <ul class="digest-list" style="margin-top:10px">${reasons.map((r) => `<li style="white-space:normal">${esc(r)}</li>`).join('')}</ul>
-    <div class="section-sub">Видео: ${num(s.counts.recent)} за 30 дней и ${num(s.counts.base)} за 90 до них.
-      ${sig.coverage.caughtYoungShare != null ? `Застали молодыми: ${Math.round(sig.coverage.caughtYoungShare * 100)}%.` : ''}
-      Считается только по собранному здесь.</div>
+    <div class="section-sub">Videos: ${num(s.counts.recent)} in 30 days and ${num(s.counts.base)} in the 90 before them.
+      ${sig.coverage.caughtYoungShare != null ? `Caught young: ${Math.round(sig.coverage.caughtYoungShare * 100)}%.` : ''}
+      Computed only from what is collected here.</div>
   </div>`;
 }
 
-/* Пороги YPP (план 12): что канал видимо проходит по открытым данным. Это не
-   статус монетизации -- YouTube его не публикует, и это сказано рядом. */
+/* YPP thresholds (plan 12): what the channel visibly passes in public data. This is not
+   a monetization status -- YouTube does not publish it, and that is stated alongside. */
 function yppText(e) {
   if (!e) return '';
   const full = e.tiers?.full || {};
   const exp = e.tiers?.expanded || {};
   const shortsSeen = compact(full.shortsViews90d?.seenAtLeast || 0);
   return {
-    'below-threshold': 'не достигнут: меньше 500 подписчиков, ни в одну программу YPP канал попасть не может',
-    'subscribers-met': `по подписчикам достигнут (${full.subscribers ? 'от 1000' : 'от 500'}); часы просмотра через API не узнать, `
-      + `загрузок за 90 дней видно ${exp.uploads90d?.seen ?? 0}, просмотров Shorts — не меньше ${shortsSeen}`,
-    'shorts-path-met': `достигнут через Shorts: не меньше ${shortsSeen} просмотров Shorts за 90 дней`,
-    unknown: 'неизвестно: число подписчиков скрыто',
+    'below-threshold': 'not reached: under 500 subscribers, the channel cannot enter any YPP tier',
+    'subscribers-met': `subscribers reached (${full.subscribers ? '1000+' : '500+'}); watch hours are not available via the API, `
+      + `uploads visible in 90 days: ${exp.uploads90d?.seen ?? 0}, Shorts views — at least ${shortsSeen}`,
+    'shorts-path-met': `reached via Shorts: at least ${shortsSeen} Shorts views in 90 days`,
+    unknown: 'unknown: the subscriber count is hidden',
   }[e.status] || e.status;
 }
 
-/* План 17: с 01.02.2027 полный уровень YPP — 8 000 часов за 365 дней или
-   20 млн просмотров Shorts за 90 дней (1 000 подписчиков остаётся). */
-const YPP_2027 = 'с 01.02.2027 полный уровень потребует 8 000 часов за 365 дней или 20 млн просмотров Shorts за 90 дней';
+/* Plan 17: from 01.02.2027 the full YPP tier requires 8,000 hours in 365 days or
+   20M Shorts views in 90 days (1,000 subscribers remains). */
+const YPP_2027 = 'from 01.02.2027 the full tier will require 8,000 hours in 365 days or 20M Shorts views in 90 days';
 
 function yppLine(e) {
   if (!e) return '';
   const next = e.upcoming
-    ? `<br><b>Правила 2027:</b> ${YPP_2027}; по видимым данным — ${
-      e.upcoming.status === e.status ? 'то же самое' : esc(yppText(e.upcoming))}.`
-    : e.rules === '2027' ? ' Действуют правила YPP с 01.02.2027.' : '';
-  return `<div class="section-sub" style="margin-top:8px"><b>Порог YPP</b> ${qmark('ypp')}: ${esc(yppText(e))}.
-    Это не статус монетизации — YouTube его не публикует; загрузки и Shorts считаются по собранным видео.${next}</div>`;
+    ? `<br><b>2027 rules:</b> ${YPP_2027}; by visible data — ${
+      e.upcoming.status === e.status ? 'the same' : esc(yppText(e.upcoming))}.`
+    : e.rules === '2027' ? ' YPP rules from 01.02.2027 apply.' : '';
+  return `<div class="section-sub" style="margin-top:8px"><b>YPP threshold</b> ${qmark('ypp')}: ${esc(yppText(e))}.
+    This is not a monetization status — YouTube does not publish it; uploads and Shorts are counted from collected videos.${next}</div>`;
 }
 
-/* Рубежи подписчиков (план 17): прямая по темпу наших снимков — оценка, не данные YouTube. */
+/* Subscriber milestones (plan 17): a straight line at the pace of our snapshots -- an estimate, not YouTube data. */
 const MILESTONE_REASON = {
-  'few-snapshots': 'мало снимков', 'short-history': 'история короче недели',
-  'no-growth': 'роста нет', 'too-slow': 'дольше 10 лет при таком темпе',
+  'few-snapshots': 'few snapshots', 'short-history': 'history shorter than a week',
+  'no-growth': 'no growth', 'too-slow': 'longer than 10 years at this pace',
 };
 
 function milestoneText(f) {
-  if (f.reached) return `${num(f.target)} — уже есть`;
-  const d = (iso) => new Date(iso).toLocaleDateString('ru-RU');
+  if (f.reached) return `${num(f.target)} — already reached`;
+  const d = (iso) => new Date(iso).toLocaleDateString('en-US');
   if (f.eta30 || f.eta90) {
     const parts = [];
-    if (f.eta30) parts.push(`≈ ${d(f.eta30)} по темпу 30 дней (+${num(f.pace30PerDay)}/день)`);
-    if (f.eta90) parts.push(`≈ ${d(f.eta90)} по темпу 90 дней`);
+    if (f.eta30) parts.push(`≈ ${d(f.eta30)} at the 30-day pace (+${num(f.pace30PerDay)}/day)`);
+    if (f.eta90) parts.push(`≈ ${d(f.eta90)} at the 90-day pace`);
     return `${num(f.target)}: ${parts.join(', ')}`;
   }
-  return `${num(f.target)}: нельзя оценить — ${MILESTONE_REASON[f.reason] || f.reason}`;
+  return `${num(f.target)}: cannot be estimated — ${MILESTONE_REASON[f.reason] || f.reason}`;
 }
 
 function milestonesLine(ms) {
   if (!ms || !ms.forecasts?.length) return '';
-  const ypp = ms.ypp1000BeforeRules2027 === true ? ' 1 000 подписчиков — до смены правил YPP 01.02.2027.'
-    : ms.ypp1000BeforeRules2027 === false ? ' 1 000 подписчиков — уже после смены правил YPP 01.02.2027.' : '';
-  return `<div class="section-sub" style="margin-top:8px"><b>Рубежи</b> ${qmark('milestones')}:
+  const ypp = ms.ypp1000BeforeRules2027 === true ? ' 1,000 subscribers — before the YPP rule change on 01.02.2027.'
+    : ms.ypp1000BeforeRules2027 === false ? ' 1,000 subscribers — after the YPP rule change on 01.02.2027.' : '';
+  return `<div class="section-sub" style="margin-top:8px"><b>Milestones</b> ${qmark('milestones')}:
     ${ms.forecasts.map((f) => esc(milestoneText(f))).join('; ')}.${ypp}
-    Оценка niche-finder по темпу наших снимков, не данные YouTube.</div>`;
+    A niche-finder estimate at the pace of our snapshots, not YouTube data.</div>`;
 }
 
-/* Фильтр поиска по порогам YPP (plan 12): пороги, которые канал видимо прошёл. */
-const YPP_TIP = 'Не статус монетизации: YouTube его не публикует. Только пороги YPP, видимые по публичным данным; каналы со скрытым числом подписчиков не проходят';
+/* Search filter by YPP thresholds (plan 12): thresholds the channel has visibly passed. */
+const YPP_TIP = 'Not a monetization status: YouTube does not publish it. Only YPP thresholds visible in public data; channels with a hidden subscriber count do not pass';
 
 function yppSelect(id, cur) {
   const opt = (v, l) => `<option value="${v}"${(cur || '') === v ? ' selected' : ''}>${l}</option>`;
-  return `<label class="field" data-tip="${YPP_TIP}"><span class="field-label">Пороги YPP</span>
-    <select id="${id}">${opt('', 'не важно')}${opt('subscribers-met', 'подписчики набраны')}${
-      opt('shorts-path-met', 'порог пройден по Shorts')}</select></label>`;
+  return `<label class="field" data-tip="${YPP_TIP}"><span class="field-label">YPP thresholds</span>
+    <select id="${id}">${opt('', 'any')}${opt('subscribers-met', 'subscribers reached')}${
+      opt('shorts-path-met', 'passed via Shorts')}</select></label>`;
 }
 
-/* Партнёры для коллабораций (план 31): похожие каналы вашего размера, активные и
-   не шаблонные. Контактов YouTube не даёт -- только ссылки на каналы. */
-const COLLAB_EXCLUDED = { 'off-topic': 'не по теме', 'size-unknown': 'размер скрыт', 'too-small': 'меньше',
-  'too-big': 'крупнее', inactive: 'не выпускали', templated: 'шаблонные' };
+/* Collaboration partners (plan 31): similar channels of your size, active and
+   not templated. YouTube provides no contacts -- only channel links. */
+const COLLAB_EXCLUDED = { 'off-topic': 'off topic', 'size-unknown': 'size hidden', 'too-small': 'smaller',
+  'too-big': 'bigger', inactive: 'inactive', templated: 'templated' };
 
 async function mountCollabs(box, channelId, { bare = false } = {}) {
   if (!box) return;
-  // bare: без своей карточки и заголовка -- когда их уже рисует экран (Мои каналы)
+  // bare: without its own card and heading -- when the screen already draws them (My channels)
   const wrap = (head, body) => (bare ? body : `<div class="card">${head}${body}</div>`);
-  box.innerHTML = wrap(sectionHead('Партнёры для коллабораций', 'похожие каналы вашего размера, активные и не шаблонные'),
-    '<div class="section-sub">Ищу…</div>');
+  box.innerHTML = wrap(sectionHead('Collaboration partners', 'similar channels of your size, active and not templated'),
+    '<div class="section-sub">Searching…</div>');
   let d;
   try { d = await api(`/api/channels/${encodeURIComponent(channelId)}/collabs`); }
   catch (e) { box.innerHTML = ''; return; }
@@ -772,75 +767,75 @@ async function mountCollabs(box, channelId, { bare = false } = {}) {
       <a class="section-sub" href="https://www.youtube.com/channel/${esc(c.channelId)}" target="_blank" rel="noopener">YouTube ↗</a></td>
     <td class="num">${compact(c.subscribers)} <span class="section-sub" style="display:inline">×${c.sizeRatio}</span></td>
     <td class="num">${Math.round(c.similarity * 100)}%</td>
-    <td class="num">${c.daysSinceUpload == null ? '—' : `${Math.round(c.daysSinceUpload)} дн. назад`}</td>
+    <td class="num">${c.daysSinceUpload == null ? '—' : `${Math.round(c.daysSinceUpload)} d ago`}</td>
     <td class="num">${c.growth30dPct == null ? '—' : `${c.growth30dPct > 0 ? '+' : ''}${c.growth30dPct}%`}</td>
-    <td class="num"><button class="btn btn-ghost btn-sm js-collab-track" data-id="${esc(c.channelId)}">В трекер</button></td>
+    <td class="num"><button class="btn btn-ghost btn-sm js-collab-track" data-id="${esc(c.channelId)}">Track</button></td>
   </tr>`).join('');
-  box.innerHTML = wrap(sectionHead('Партнёры для коллабораций',
-      `похожая тема, ×${d.minRatio}–×${d.maxRatio} ваших подписчиков, загрузка за ${d.activeDays} дней, не шаблонные`), `
-    ${rows ? `<div class="table-wrap"><table><thead><tr><th>Канал</th><th class="num">Подписчики</th>
-      <th class="num">Похожесть</th><th class="num">Последнее видео</th><th class="num">Рост за 30 дн.</th><th></th></tr></thead>
+  box.innerHTML = wrap(sectionHead('Collaboration partners',
+      `similar topic, ×${d.minRatio}–×${d.maxRatio} of your subscribers, an upload within ${d.activeDays} days, not templated`), `
+    ${rows ? `<div class="table-wrap"><table><thead><tr><th>Channel</th><th class="num">Subscribers</th>
+      <th class="num">Similarity</th><th class="num">Last video</th><th class="num">30-day growth</th><th></th></tr></thead>
       <tbody>${rows}</tbody></table></div>`
-      : empty(d.hint || 'подходящих каналов среди собранных нет — соберите нишу шире')}
-    <div class="section-sub" style="margin-top:8px">${ex ? `Отсеяно из ${num(d.poolSize)} похожих: ${esc(ex)}. ` : ''}Только собранные каналы;
-      контактов YouTube не даёт — пишите через ссылки на канале.</div>`);
+      : empty(d.hint || 'no suitable channels among the collected ones — collect the niche more widely')}
+    <div class="section-sub" style="margin-top:8px">${ex ? `Filtered out of ${num(d.poolSize)} similar: ${esc(ex)}. ` : ''}Collected channels only;
+      YouTube provides no contacts — reach out via the links on the channel.</div>`);
   box.querySelectorAll('.js-collab-track').forEach((b) => b.addEventListener('click', async () => {
     b.disabled = true;
-    try { await api('/api/channels/track', { method: 'POST', body: { channel_id: b.dataset.id, note: 'коллаборация' } });
-      b.textContent = 'В трекере'; toast('Канал добавлен в трекер', 'ok'); }
+    try { await api('/api/channels/track', { method: 'POST', body: { channel_id: b.dataset.id, note: 'collaboration' } });
+      b.textContent = 'Tracked'; toast('Channel added to the tracker', 'ok'); }
     catch (e) { b.disabled = false; toast(e.message, 'err'); }
   }));
 }
 
-/* Чистая прибыль (план 30): вилка выручки минус расходы выбранного профиля.
-   target: { channel_id } или { niche }. Профили редактируются на экране «Данные». */
-const PROFIT_VERDICT = { profitable: ['chip-good', 'в плюсе'], loss: ['chip-bad', 'в минусе'],
-  uncertain: ['chip-warn', 'не ясно: зависит от RPM'] };
+/* Net profit (plan 30): the revenue range minus the costs of the selected profile.
+   target: { channel_id } or { niche }. Profiles are edited on the "Data" screen. */
+const PROFIT_VERDICT = { profitable: ['chip-good', 'profitable'], loss: ['chip-bad', 'loss-making'],
+  uncertain: ['chip-warn', 'unclear: depends on RPM'] };
 
-const UPLOADS_BASIS = (b) => (b === 'set by you' ? 'заданы вами'
-  : b.startsWith('long videos') ? 'длинные видео за 30 дней' : 'по умолчанию');
+const UPLOADS_BASIS = (b) => (b === 'set by you' ? 'set by you'
+  : b.startsWith('long videos') ? 'long videos in 30 days' : 'default');
 
 function money(v) {
   if (v == null) return '—';
-  const s = `$${Math.abs(Number(v)).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}`;
+  const s = `$${Math.abs(Number(v)).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
   return v < 0 ? `−${s}` : s;
 }
 function moneyRange(r) { return `${money(r.low)} … ${money(r.high)}`; }
 
 function profitResult(d) {
-  if (!d.found) return empty(d.hint || 'нет данных');
+  if (!d.found) return empty(d.hint || 'no data');
   const part = d.month || d.video;
   const [cls, label] = PROFIT_VERDICT[part.verdict] || ['', part.verdict];
-  const per = d.month ? 'в месяц' : 'за видео';
+  const per = d.month ? 'per month' : 'per video';
   const be = d.video?.breakEvenViews;
   return `
-    ${d.yppWarning ? notice('Канал не проходит полный уровень YPP (1000 подписчиков): доход с рекламы начинается с него, до того реальная выручка может быть нулевой.', 'warn') : ''}
-    ${d.hint ? notice('Профиля расходов нет — расходы считаются нулевыми. Добавьте профиль на экране «Данные».') : ''}
+    ${d.yppWarning ? notice('The channel does not reach the full YPP tier (1,000 subscribers): ad revenue starts there, below it real revenue may be zero.', 'warn') : ''}
+    ${d.hint ? notice('There is no cost profile — costs are assumed to be zero. Add a profile on the "Data" screen.') : ''}
     <div class="tiles">
-      ${tile(`Выручка ${per}`, moneyRange(part.revenue), `середина ${money(part.revenue.mid)}`)}
-      ${tile(`Расходы ${per}`, money(part.cost), d.month ? `${num(d.month.uploads)} видео × ${money(d.month.costPerVideo)} + ${money(d.month.overhead)}` : '')}
-      ${tile(`Прибыль ${per}`, moneyRange(part.profit), `середина ${money(part.profit.mid)}`)}
-      ${tile('Итог', `<span class="chip ${cls}">${esc(label)}</span>`)}
-      ${be ? tile('Окупается с', `${num(be.mid)} просм.`, `от ${num(be.high)} до ${num(be.low)} — по RPM`) : ''}
+      ${tile(`Revenue ${per}`, moneyRange(part.revenue), `midpoint ${money(part.revenue.mid)}`)}
+      ${tile(`Costs ${per}`, money(part.cost), d.month ? `${num(d.month.uploads)} videos × ${money(d.month.costPerVideo)} + ${money(d.month.overhead)}` : '')}
+      ${tile(`Profit ${per}`, moneyRange(part.profit), `midpoint ${money(part.profit.mid)}`)}
+      ${tile('Result', `<span class="chip ${cls}">${esc(label)}</span>`)}
+      ${be ? tile('Breaks even at', `${num(be.mid)} views`, `from ${num(be.high)} to ${num(be.low)} — by RPM`) : ''}
     </div>
-    <div class="section-sub" style="margin-top:8px">RPM: ${money(d.rpm.low)} … ${money(d.rpm.high)} (${d.rpmBasis.includes('real') ? 'ваш реальный RPM' : 'оценка по категории'})${
-      d.uploadsBasis ? ` · видео в месяц: ${num(d.month?.uploads)} (${esc(UPLOADS_BASIS(d.uploadsBasis))})` : ''}${
-      d.typicalVideo ? ' · типичное видео ниши: медиана просмотров и длины' : ''}. Только AdSense, без спонсоров.</div>`;
+    <div class="section-sub" style="margin-top:8px">RPM: ${money(d.rpm.low)} … ${money(d.rpm.high)} (${d.rpmBasis.includes('real') ? 'your real RPM' : 'category estimate'})${
+      d.uploadsBasis ? ` · videos per month: ${num(d.month?.uploads)} (${esc(UPLOADS_BASIS(d.uploadsBasis))})` : ''}${
+      d.typicalVideo ? ' · typical niche video: median views and length' : ''}. AdSense only, no sponsors.</div>`;
 }
 
 async function mountProfit(box, target) {
   if (!box) return;
   let profiles = [];
-  try { profiles = (await api('/api/cost-profiles')).profiles; } catch { /* без профилей тоже считаем */ }
+  try { profiles = (await api('/api/cost-profiles')).profiles; } catch { /* we compute without profiles too */ }
   const opts = profiles.length
     ? profiles.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('')
-    : '<option value="">без расходов</option>';
-  box.innerHTML = `<div class="card">${sectionHead('Чистая прибыль', 'выручка минус расходы на производство', `
+    : '<option value="">no costs</option>';
+  box.innerHTML = `<div class="card">${sectionHead('Net profit', 'revenue minus production costs', `
       <select class="js-profit-profile">${opts}</select>
-      <input type="number" min="0" class="js-profit-vpm" placeholder="видео/мес" style="width:90px">
+      <input type="number" min="0" class="js-profit-vpm" placeholder="videos/mo" style="width:90px">
       ${qmark('profit')}`)}
-    <div class="js-profit-body"><div class="section-sub">Считаю…</div></div>
-    <div class="section-sub" style="margin-top:6px">Профили расходов — на экране <a href="#/data">«Данные»</a>.</div></div>`;
+    <div class="js-profit-body"><div class="section-sub">Calculating…</div></div>
+    <div class="section-sub" style="margin-top:6px">Cost profiles are on the <a href="#/data">Data</a> screen.</div></div>`;
   const load = async () => {
     const body = box.querySelector('.js-profit-body');
     const vpm = box.querySelector('.js-profit-vpm').value;
@@ -855,49 +850,49 @@ async function mountProfit(box, target) {
   load();
 }
 
-/* «Что общего у выстреливших» (план 29): признаки, по которым outlier'ы ниши заметно
-   отличаются от обычных видео. Корреляция, не причина. only: 'long' | 'short' | null. */
+/* "What breakouts have in common" (plan 29): traits by which the niche's outliers differ noticeably
+   from ordinary videos. Correlation, not cause. only: 'long' | 'short' | null. */
 function traitValue(t, v) {
   if (t.kind === 'share') return `${v}%`;
-  return t.key === 'duration' ? `${v} с` : `${v}`;
+  return t.key === 'duration' ? `${v} s` : `${v}`;
 }
 
 function traitLine(t) {
-  const n = `${num(t.nOutliers)} и ${num(t.nOrdinary)} видео`;
+  const n = `${num(t.nOutliers)} and ${num(t.nOrdinary)} videos`;
   if (t.kind === 'share') {
     const pp = Math.abs(t.diff);
-    return `<b>${esc(t.label)}</b>: у outlier'ов ${t.outliers}% против ${t.ordinary}% у обычных
-      (${t.diff > 0 ? '+' : '−'}${pp} п.п.) <span class="section-sub" style="display:inline">· ${n}</span>`;
+    return `<b>${esc(t.label)}</b>: outliers ${t.outliers}% vs ${t.ordinary}% for ordinary ones
+      (${t.diff > 0 ? '+' : '−'}${pp} pp) <span class="section-sub" style="display:inline">· ${n}</span>`;
   }
-  return `<b>${esc(t.label)}</b>: медиана ${traitValue(t, t.outliers)} против ${traitValue(t, t.ordinary)}
+  return `<b>${esc(t.label)}</b>: median ${traitValue(t, t.outliers)} vs ${traitValue(t, t.ordinary)}
     (×${t.diff}) <span class="section-sub" style="display:inline">· ${n}</span>`;
 }
 
 function outlierTraitsBlock(d, only = null) {
   if (!d || !d.formats) return '';
-  const names = { long: 'длинные видео', short: 'Shorts' };
+  const names = { long: 'long videos', short: 'Shorts' };
   const parts = Object.keys(names).filter((k) => !only || k === only).map((k) => {
     const f = d.formats[k];
     if (!f || (only === null && !f.videos)) return '';
-    const head = `${f.outliers} outlier'ов (≥ ×${d.minOutlier}) против ${f.ordinary} обычных (≤ ×${d.maxOrdinary})`;
+    const head = `${f.outliers} outliers (≥ ×${d.minOutlier}) vs ${f.ordinary} ordinary (≤ ×${d.maxOrdinary})`;
     if (!f.reliable) {
-      return `<div><b>${names[k]}</b>: мало данных — нужно ${d.minGroup}+ видео в каждой группе, сейчас ${head}.</div>`;
+      return `<div><b>${names[k]}</b>: not enough data — ${d.minGroup}+ videos are needed in each group, currently ${head}.</div>`;
     }
     const sig = f.traits.filter((t) => t.significant);
     const rest = f.traits.filter((t) => !t.significant && t.diff !== null);
     return `<div style="margin-bottom:12px"><b>${names[k]}</b> <span class="section-sub" style="display:inline">· ${head}</span>
-      ${f.concentrated ? notice(`${Math.round(f.topChannelShare * 100)}% outlier'ов — один канал: это привычки канала, а не ниши.`, 'warn') : ''}
+      ${f.concentrated ? notice(`${Math.round(f.topChannelShare * 100)}% of outliers come from one channel: these are the channel's habits, not the niche's.`, 'warn') : ''}
       ${sig.length ? `<ul class="digest-list">${sig.map((t) => `<li style="white-space:normal">${traitLine(t)}</li>`).join('')}</ul>`
-        : '<div class="section-sub">Заметных отличий нет: ни один признак не разошёлся достаточно.</div>'}
-      ${rest.length ? `<details><summary class="section-sub" style="cursor:pointer">Без заметной разницы (${rest.length})</summary>
+        : '<div class="section-sub">No notable differences: no trait diverged enough.</div>'}
+      ${rest.length ? `<details><summary class="section-sub" style="cursor:pointer">No notable difference (${rest.length})</summary>
         <ul class="digest-list">${rest.map((t) => `<li style="white-space:normal">${traitLine(t)}</li>`).join('')}</ul></details>` : ''}
     </div>`;
   }).join('');
   if (!parts) return '';
-  return `<div class="card">${sectionHead('Что общего у выстреливших',
-    'чем outlier\'ы отличаются от обычных видео ниши — по числам, без ИИ', qmark('outlierTraits'))}
-    ${parts}<div class="section-sub">Корреляция, не причина. Заметно — разница от ${d.minDiffPp} п.п. (доли) или в ${d.minRatio} раза (медианы);
-      признаков проверено много, один-два могут сойтись случайно. Время — UTC. Оценка по собранной базе.</div></div>`;
+  return `<div class="card">${sectionHead('What breakouts have in common',
+    'how outliers differ from the niche\'s ordinary videos — by the numbers, no AI', qmark('outlierTraits'))}
+    ${parts}<div class="section-sub">Correlation, not cause. Notable means a difference of ${d.minDiffPp} pp (shares) or ${d.minRatio}x (medians);
+      many traits are checked, one or two may line up by chance. Times are UTC. An estimate over the collected database.</div></div>`;
 }
 
 export { $, api, q, num, compact, mult, ago, esc, delta, plural, pl, toast, tile, sectionHead,

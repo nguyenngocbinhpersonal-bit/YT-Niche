@@ -1,8 +1,8 @@
-/* Экран дашборда. Роутинг -- router.js, общее -- shared.js, компоненты -- ui.js. */
+/* Dashboard screen. Routing -- router.js, shared code -- shared.js, components -- ui.js. */
 import { $, api, q, num, compact, esc, tile, sectionHead, empty, table, state } from '../ui.js';
 import { view, plabel, base, render } from '../shared.js';
 
-/* --------------------------------------------------------- Ключевые слова */
+/* --------------------------------------------------------- Keywords */
 
 async function viewKeywords() {
   const semantic = localStorage.getItem('nf.keywordsMode') === 'semantic';
@@ -10,42 +10,42 @@ async function viewKeywords() {
     keywords_mode: semantic ? 'semantic' : 'ngram' })}`);
   view.innerHTML = `
     <div class="card">
-      ${sectionHead('Трендовые ключевые слова', plabel(state.period), `
+      ${sectionHead('Trending keywords', plabel(state.period), `
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
           <input type="checkbox" id="semanticModeToggle" ${semantic ? 'checked' : ''}>
-          смысловой режим (слияние синонимов через эмбеддинги)
+          semantic mode (merging synonyms via embeddings)
         </label>`)}
       <div class="tiles">
-        ${tile('Видео в анализе', num(d.videosAnalysed))}
-        ${tile('В предыдущем окне', num(d.previousWindowVideos))}
-        ${tile('Базовая доля outlier', `${d.outlierBaseRate}%`, 'сколько видео вообще пробивают')}
-        ${tile('Покрытие тегами', `${d.tagCoveragePercent}%`, 'теги проставляют не все авторы')}
+        ${tile('Videos analysed', num(d.videosAnalysed))}
+        ${tile('In the previous window', num(d.previousWindowVideos))}
+        ${tile('Base outlier share', `${d.outlierBaseRate}%`, 'how many videos break out at all')}
+        ${tile('Tag coverage', `${d.tagCoveragePercent}%`, 'not all authors set tags')}
       </div>
     </div>
     <div class="card">
       ${d.keywords.length ? table([
-        { label: 'Фраза', wrap: true, render: (r) => esc(r.keyword) },
+        { label: 'Phrase', wrap: true, render: (r) => esc(r.keyword) },
         { label: 'Opportunity', num: true, tip: 'trendScore', render: (r) => r.opportunityScore != null
             ? `<span class="chip ${r.opportunityScore >= 70 ? 'chip-good' : r.opportunityScore < 30 ? 'chip-bad' : ''}">${r.opportunityScore}</span>`
             : '—' },
-        { label: 'Видео', num: true, render: (r) => num(r.videos) },
+        { label: 'Videos', num: true, render: (r) => num(r.videos) },
         { label: 'Momentum', num: true, tip: 'trendScore', render: (r) => r.momentum ?? '—' },
         { label: 'Lift', num: true, tip: 'trendScore', render: (r) => r.outlierLift ?? '—' },
-        { label: 'Доля', num: true, render: (r) => `${r.share}%` },
-        { label: 'Медиана просмотров', num: true, render: (r) => compact(r.medianViews) },
-        { label: 'Новая', render: (r) => (r.isNew ? 'да' : '') },
-        { label: 'Пример', wrap: true, render: (r) => esc(r.examples?.[0]?.title || '') },
-      ], d.keywords) : empty(d.hint || 'нет фраз над порогом')}
+        { label: 'Share', num: true, render: (r) => `${r.share}%` },
+        { label: 'Median views', num: true, render: (r) => compact(r.medianViews) },
+        { label: 'New', render: (r) => (r.isNew ? 'yes' : '') },
+        { label: 'Example', wrap: true, render: (r) => esc(r.examples?.[0]?.title || '') },
+      ], d.keywords) : empty(d.hint || 'no phrases above the threshold')}
       <div class="section-sub" style="margin-top:14px">
-        <b>Opportunity</b> — 0-100, для удобства чтения: trendScore, растянутый по
-        мин/макс среди фраз именно этого экрана. Это НЕ настоящий keyword score вроде
-        vidIQ (для него нужен бы объём поиска YouTube, а такого API не существует) —
-        сравнивать это число между разными запросами или окнами нельзя, только внутри
-        одной текущей выдачи.<br>
-        <b>momentum</b> — доля фразы в этом окне против доли в предыдущем таком же
-        (со сглаживанием); больше 2 значит быстрый рост.<br>
-        <b>outlierLift</b> — во сколько раз фраза повышает шансы видео пробить;
-        больше 1.5 значит, что фраза реально коррелирует с пробитиями.
+        <b>Opportunity</b> — 0-100, for readability: trendScore stretched across the
+        min/max among the phrases on this very screen. This is NOT a real keyword score like
+        vidIQ (that would need YouTube search volume, and no such API exists) —
+        do not compare this number across different queries or windows, only within
+        one current result set.<br>
+        <b>momentum</b> — the phrase's share in this window against its share in the previous equal
+        window (smoothed); above 2 means fast growth.<br>
+        <b>outlierLift</b> — how many times the phrase raises a video's chance of breaking out;
+        above 1.5 means the phrase really correlates with breakouts.
       </div>
     </div>`;
 

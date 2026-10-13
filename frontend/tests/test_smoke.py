@@ -1,13 +1,13 @@
-"""Смоук-тест дашборда: каждый экран открывается и рисуется без ошибок.
+"""Dashboard smoke test: every screen opens and renders without errors.
 
-Поднимает бэкенд на синтетических данных (backend/tests/seed_demo.py) в своей
-схеме Postgres, обходит все экраны в headless Chromium и проверяет: загрузка
-закончилась, нет плашки «Не удалось загрузить данные», нет ошибок в консоли и
-исключений на странице, ни один ответ /api/* не 5xx. С каждого экрана --
-скриншот в frontend/tests/screenshots/.
+Starts the backend on synthetic data (backend/tests/seed_demo.py) in its own
+Postgres schema, walks through all the screens in headless Chromium and checks: loading
+has finished, there is no "Failed to load data" banner, no console errors and no
+page exceptions, and no /api/* response is 5xx. A screenshot is saved from each
+screen to frontend/tests/screenshots/.
 
-Кнопки не нажимаются: POST тратит квоту YouTube и деньги LLM. Рабочие данные не
-трогаются: своя схема nf_smoke_<hex>, после прогона удаляется.
+Buttons are not clicked: a POST spends YouTube quota and LLM money. Working data is not
+touched: it uses its own schema nf_smoke_<hex>, which is dropped after the run.
 
     make frontend-test
 """
@@ -29,8 +29,8 @@ ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "backend"
 SHOTS = Path(__file__).resolve().parent / "screenshots"
 
-# 24 ключа ROUTES из router.js (до разбивки -- из app.js) + глубокие ссылки
-# на объекты из seed_demo.py.
+# The 24 keys of ROUTES from router.js (before the split -- from app.js) + deep links
+# to objects from seed_demo.py.
 ROUTES = [
     "overview", "find", "viral", "channels", "categories", "keywords", "tags",
     "tracker", "alerts", "ideas", "language", "transcripts", "clusters", "titles", "saved", "packaging", "metadata", "calendar",
@@ -47,8 +47,8 @@ READY_JS = """() => {
 
 
 def _env(schema):
-    # Пустой ключ перекрывает корневой .env (dotenv не перезаписывает заданные
-    # переменные), LLM выключен: ни квоты, ни денег.
+    # An empty key overrides the root .env (dotenv does not overwrite already set
+    # variables); the LLM is off: no quota, no money.
     return dict(os.environ, NICHE_DB_SCHEMA=schema, YOUTUBE_API_KEY="", LLM_PROVIDER="none")
 
 
@@ -67,8 +67,8 @@ def _drop_schema(env, schema):
     result = subprocess.run([sys.executable, "-c", code], cwd=BACKEND, env=env,
                              check=False, capture_output=True, text=True)
     if result.returncode != 0:
-        # Не роняем иначе зелёный прогон -- но не молчим: без этого предупреждения
-        # схема nf_smoke_* тихо остаётся в базе.
+        # Do not fail an otherwise green run -- but do not stay silent: without this warning
+        # the nf_smoke_* schema would quietly stay in the database.
         warnings.warn(
             f"failed to drop schema {schema!r} (exit {result.returncode}):\n{result.stderr}",
             stacklevel=2)
@@ -124,29 +124,29 @@ def browser():
 
 
 def _is_benign_console(text):
-    # Ответ 4xx/5xx браузер сам пишет в консоль как "Failed to load resource".
-    # 4xx для экранов -- штатно (например, 428 без ключа YouTube), а 5xx
-    # ловится отдельно по ответам.
+    # The browser itself writes a 4xx/5xx response to the console as "Failed to load resource".
+    # 4xx is normal for screens (for example, 428 without a YouTube key), while 5xx
+    # is caught separately by the responses.
     return text.startswith("Failed to load resource")
 
 
 def _router_js_route_keys():
-    """Ключи объекта ROUTES из frontend/router.js (без глубоких ссылок)."""
+    """Keys of the ROUTES object from frontend/router.js (without deep links)."""
     text = (ROOT / "frontend" / "router.js").read_text(encoding="utf-8")
     block = re.search(r"const\s+ROUTES\s*=\s*\{(.*?)\n\};", text, re.S)
-    assert block, "router.js: не нашли блок `const ROUTES = { ... };`"
+    assert block, "router.js: could not find the `const ROUTES = { ... };` block"
     return re.findall(r"^\s*([A-Za-z_$][\w$]*)\s*:\s*\{", block.group(1), re.M)
 
 
 def test_routes_list_matches_router_js():
-    # Экран, добавленный в router.js, но не в ROUTES здесь, тестировался бы
-    # молча никогда -- эта проверка ловит рассинхронизацию без браузера/сервера.
+    # A screen added to router.js but not to ROUTES here would never be tested --
+    # silently; this check catches the desync without a browser/server.
     expected = {r for r in ROUTES if "/" not in r}
     actual = set(_router_js_route_keys())
     assert actual == expected, (
-        f"ROUTES в test_smoke.py разошёлся с router.js: "
-        f"отсутствуют в тесте {sorted(actual - expected)}, "
-        f"лишние в тесте {sorted(expected - actual)}"
+        f"ROUTES in test_smoke.py has diverged from router.js: "
+        f"missing from the test {sorted(actual - expected)}, "
+        f"extra in the test {sorted(expected - actual)}"
     )
 
 
@@ -169,41 +169,41 @@ def test_screen_renders_without_errors(browser, base_url, route):
         text = page.inner_text("#view")
     finally:
         page.close()
-    assert "Не удалось загрузить данные" not in text, text[:500]
+    assert "Failed to load data" not in text, text[:500]
     assert not problems, "\n".join(problems)
 
 
 @pytest.mark.parametrize("route,expected", [
-    # Карточка пробелов (план 03): без кэша комментариев -- кнопка «Прочитать
-    # комментарии», квота сама не тратится.
-    ("niche/demo", ["Пробелы в контенте", "Прочитать комментарии"]),
-    # Стили превью (план 13): без векторов -- кнопка посчитать, квота не тратится.
-    ("niche/demo", ["Стили превью", "Посчитать векторы превью"]),
-    # Мои каналы (план 14): без OAuth-клиента -- пошаговая настройка, а не ошибка.
-    ("own", ["Подключение не настроено", "OWN_TOKENS_KEY"]),
-    ("own?error=access_denied", ["Подключить не удалось", "access_denied"]),
-    # Сценарии MCP (план 11): раздел на экране подключения.
-    ("mcp", ["Сценарии", "find_niche", "niche_health"]),
-    # Тренд ниши (план 08): блок на экране ниши и колонка в списке ниш.
-    ("niche/demo", ["Тренд ниши", "Видео за 30 дней"]),
-    ("niches", ["Тренд"]),
-    # Что общего у выстреливших (план 29): блок на экране ниши, на демо-данных -- «мало данных».
-    ("niche/demo", ["Что общего у выстреливших", "Корреляция, не причина"]),
-    # Другой язык (план 26): на демо-данных -- либо выбор пары, либо подсказка собрать второй язык.
-    ("language", ["Другой язык"]),
-    # Где заходить (план 27): рейтинг ниш с пояснением, что веса — суждение.
-    ("enter", ["Где заходить", "Веса — наше суждение", "Сравнить выбранные"]),
-    # Чистая прибыль (план 30): карточка канала и ниши, редактор профилей на «Данных».
-    ("channel/UC0000000000000000000a", ["Чистая прибыль", "Профиля расходов нет"]),
-    # Контент-календарь (план 33): неделя и черновики без даты.
-    ("calendar", ["Календарь", "Без даты", "хранится в UTC"]),
-    # Партнёры для коллабораций (план 31): блок на экране канала.
-    ("channel/UC0000000000000000000a", ["Партнёры для коллабораций", "контактов YouTube не даёт"]),
-    ("niche/demo", ["Чистая прибыль", "Окупается с"]),
-    ("data", ["Профили расходов", "Профилей пока нет"]),
-    # Бриф под вопрос зрителей: тема из ?gap= доходит до экрана.
+    # The gaps card (plan 03): without a comment cache -- the "Read
+    # comments" button; quota is not spent by itself.
+    ("niche/demo", ["Content gaps", "Read comments"]),
+    # Thumbnail styles (plan 13): without vectors -- a compute button, no quota spent.
+    ("niche/demo", ["Thumbnail styles", "Compute the niche's thumbnail vectors"]),
+    # My channels (plan 14): without an OAuth client -- a step-by-step setup, not an error.
+    ("own", ["Connection is not set up", "OWN_TOKENS_KEY"]),
+    ("own?error=access_denied", ["Connection failed", "access_denied"]),
+    # MCP scenarios (plan 11): a section on the connection screen.
+    ("mcp", ["Scenarios", "find_niche", "niche_health"]),
+    # Niche trend (plan 08): a block on the niche screen and a column in the niche list.
+    ("niche/demo", ["Niche trend", "Videos in 30 days"]),
+    ("niches", ["Trend"]),
+    # What breakouts have in common (plan 29): a block on the niche screen, "not enough data" on demo data.
+    ("niche/demo", ["What breakouts have in common", "Correlation, not cause"]),
+    # Another language (plan 26): on demo data -- either a pair picker or a hint to collect a second language.
+    ("language", ["Another language"]),
+    # Where to enter (plan 27): the niche ranking with a note that the weights are a judgement.
+    ("enter", ["Where to enter", "The weights are our judgement", "Compare selected"]),
+    # Net profit (plan 30): the channel and niche card, the profile editor on "Data".
+    ("channel/UC0000000000000000000a", ["Net profit", "There is no cost profile"]),
+    # Content calendar (plan 33): a week and drafts without a date.
+    ("calendar", ["Calendar", "No date", "stored in UTC"]),
+    # Collaboration partners (plan 31): a block on the channel screen.
+    ("channel/UC0000000000000000000a", ["Collaboration partners", "YouTube provides no contacts"]),
+    ("niche/demo", ["Net profit", "Breaks even at"]),
+    ("data", ["Cost profiles", "No profiles yet"]),
+    # A brief for a viewer question: the topic from ?gap= reaches the screen.
     ("brief/avid000?gap=how%20to%20start%20a%20tiny%20AI%20lab%3F",
-     ["Бриф под пробел", "how to start a tiny AI lab?"]),
+     ["Brief for a gap", "how to start a tiny AI lab?"]),
 ])
 def test_content_gaps_parts_are_on_screen(browser, base_url, route, expected):
     page = browser.new_page(viewport={"width": 1400, "height": 900})
@@ -214,15 +214,15 @@ def test_content_gaps_parts_are_on_screen(browser, base_url, route, expected):
         text = page.inner_text("#view")
     finally:
         page.close()
-    # Подписи плиток и заголовки таблиц CSS выводит заглавными, inner_text
-    # отдаёт уже преобразованный текст -- сравниваем без регистра.
+    # CSS shows tile captions and table headers in capitals, inner_text
+    # returns the already transformed text -- compare case-insensitively.
     for part in expected:
         assert part.lower() in text.lower(), f"{part!r} not on #/{route}: {text[:400]}"
 
 
 def test_sign_in_screen_when_multi_user_mode_has_no_session(browser, base_url):
-    # План 15: сервер с NF_MULTI_USER=1 без сессии -- дашборд показывает вход, а не
-    # сыплет ошибками 401 по экранам. Ответ /api/auth/me подменяем.
+    # Plan 15: a server with NF_MULTI_USER=1 without a session -- the dashboard shows sign-in instead of
+    # throwing 401 errors across screens. The /api/auth/me response is replaced.
     page = browser.new_page(viewport={"width": 1400, "height": 900})
     problems = []
     page.on("pageerror", lambda e: problems.append(str(e)))
@@ -234,12 +234,12 @@ def test_sign_in_screen_when_multi_user_mode_has_no_session(browser, base_url):
         text = page.inner_text("#view")
     finally:
         page.close()
-    assert "Вход в niche-finder" in text and not problems
+    assert "Sign in to niche-finder" in text and not problems
 
 
 
 def test_token_section_shows_only_with_sign_in(browser, base_url):
-    # План 15 (5.7-5.8): без входа раздела токенов нет, с входом -- есть.
+    # Plan 15 (5.7-5.8): without sign-in there is no token section, with sign-in there is.
     page = browser.new_page(viewport={"width": 1400, "height": 900})
     page.route("**/api/auth/me", lambda r: r.fulfill(status=200, content_type="application/json",
         body='{"multiUser": true, "user": {"id": 2, "email": "a@x", "isAdmin": false}, "quota": null}'))
@@ -251,4 +251,4 @@ def test_token_section_shows_only_with_sign_in(browser, base_url):
         text = page.inner_text("#apiTokens")
     finally:
         page.close()
-    assert "Личные токены" in text and "ext" in text
+    assert "Personal tokens" in text and "ext" in text

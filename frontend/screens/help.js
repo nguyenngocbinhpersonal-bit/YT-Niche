@@ -1,388 +1,388 @@
-/* Экран дашборда. Роутинг -- router.js, общее -- shared.js, компоненты -- ui.js. */
+/* Dashboard screen. Routing -- router.js, shared code -- shared.js, components -- ui.js. */
 import { api, esc, sectionHead, table } from '../ui.js';
 import { view } from '../shared.js';
 
-/* ------------------------------------------------------------- Справка */
+/* ------------------------------------------------------------- Help */
 
 async function viewHelp() {
   view.innerHTML = `
     <div class="card">
-      ${sectionHead('Что это такое', 'бесплатный локальный аналог NexLev Niche Finder')}
+      ${sectionHead('What this is', 'a free local alternative to NexLev Niche Finder')}
       <div class="prose">
-        <p class="lead"><strong>niche-finder</strong> — свой инструмент поиска ниш и вирусных видео на
-          YouTube: те же разделы, что у NexLev / vidIQ / ViewStats (вирусные видео у маленьких
-          каналов, топ категорий, растущие ключевые слова, разбор и трекинг каналов), но поверх
-          бесплатного YouTube Data API v3 и локальной базы Postgres (с pgvector для смыслового
-          поиска) — без подписки и без чужого сервера.</p>
-        <p>Работает в двух формах одновременно: как <strong>MCP-сервер</strong> для Claude Desktop
-          (инструкция — на отдельной странице «MCP-подключение» в меню слева) и как этот
-          <strong>веб-дашборд</strong>, который вы сейчас открыли. Оба читают одну и ту же базу и
-          одни и те же формулы — расхождений в цифрах между ними быть не может.</p>
-        <p>Все базовые разделы работают без какого-либо ключа к LLM: сервер отдаёт сырые цифры,
-          заголовки и обложки, а смысловые решения вида «faceless / подходит по теме» может принять
-          модель, которая обращается к MCP-инструментам в диалоге. Опционально можно подключить
-          LLM (<code>LLM_PROVIDER</code>: OpenRouter, в том числе бесплатные модели, или локальный
-          Ollama) — тогда включаются фоновые AI-метки каналов, «почему выстрелило», выжимка
-          комментариев, генерация заголовков, названия кластеров на карте ниш и авто-теги.</p>
+        <p class="lead"><strong>niche-finder</strong> is your own tool for finding niches and viral videos on
+          YouTube: the same sections as NexLev / vidIQ / ViewStats (viral videos from small
+          channels, top categories, rising keywords, channel analysis and tracking), but built on the
+          free YouTube Data API v3 and a local Postgres database (with pgvector for semantic
+          search) — no subscription and no one else's server.</p>
+        <p>It works in two forms at once: as an <strong>MCP server</strong> for Claude Desktop
+          (instructions are on the separate "MCP connection" page in the left menu) and as this
+          <strong>web dashboard</strong>, which you have open right now. Both read the same database and
+          the same formulas — the numbers cannot disagree between them.</p>
+        <p>All the basic sections work without any LLM key: the server returns raw numbers,
+          titles and thumbnails, and judgement calls like "faceless / fits the topic" can be made by
+          the model that calls the MCP tools in a conversation. Optionally you can connect an
+          LLM (<code>LLM_PROVIDER</code>: OpenRouter, including free models, or a local
+          Ollama) — that enables background AI channel labels, "why it broke out", comment
+          summaries, title generation, cluster names on the niche map and auto-tags.</p>
       </div>
     </div>
 
     <div class="card">
-      ${sectionHead('Экраны', 'что показывает каждый пункт меню слева')}
+      ${sectionHead('Screens', 'what each item in the left menu shows')}
       <div class="prose">
-        <h4>Обзор</h4>
-        <p>Всё сразу одним запросом: топ outlier-каналов, кто скоро станет конкурентом, категории,
-          ключевые слова и вирусные видео за выбранный период. Стартовая точка каждой сессии.
-          Сверху — «За сутки»: то же, что приходит утренним дайджестом в Telegram при NOTIFY_MODE=digest.</p>
-        <h4>Найти нишу</h4>
-        <p>Смысловой поиск по уже собранной базе (по эмбеддингам заголовков и описаний) — бесплатно,
-          без квоты. Фильтры: минимальный множитель, максимум подписчиков, оценка RPM, длина видео,
-          Shorts. Внизу — форма сбора, которая уже тратит квоту.</p>
-        <h4>Вирусные видео</h4>
-        <p>Видео маленьких каналов, которые выстрелили сильнее ожидаемого. Есть фильтры (подписчики,
-          просмотры, период) и «воронка фильтров» внизу — видно, какой именно порог отсёк результаты,
-          если список пуст.</p>
-        <h4>Outlier-каналы</h4>
-        <p>То же самое на уровне канала: лучший множитель среди его видео за окно и полоса силы
-          0–4. Значок ≈ у множителя означает, что он посчитан по более грубой формуле — см. вопрос
-          об этом в FAQ ниже.</p>
-        <h4>Категории</h4>
-        <p>Рейтинг категорий YouTube за период со сдвигом доли против предыдущего окна такой же
-          длины — можно ранжировать по просмотрам или по числу каналов.</p>
-        <h4>Ключевые слова</h4>
-        <p>Растущие фразы (n-граммы) из заголовков с momentum и outlier-lift — насколько видео с этой
-          фразой в среднем выстреливают сильнее прочих.</p>
-        <h4>Топ теги по категориям</h4>
-        <p>Авторские теги YouTube целиком, по категориям: сколько видео, доля и outlier-lift —
-          lift выше 1,5 значит, что тег связан с выстрелами, а не просто популярен.</p>
-        <h4>Трекер каналов</h4>
-        <p>Вотчлист: каналы отсюда регулярно обновляет фоновый воркер, поэтому только для них со
-          временем появляются рост подписчиков, грейд и вкладка «просмотры во времени». Если
-          подключён LLM, список можно фильтровать по AI-меткам (faceless, формат, тема).</p>
-        <h4>Алерты</h4>
-        <p>События по каналам из трекера — то же, что уходит в Telegram или webhook: outlier,
-          ускорение, смена заголовка, возврат после паузы, пропавший канал или видео. Фильтр по типу
-          и «только новые». Канал считается пропавшим после двух промахов API с разницей не меньше
-          6 часов (удалён, скрыт или заблокирован), и на его экране появляется красная пометка.
-          Исчерпанная квота или ошибка API пропажей не считаются. Квота не тратится.</p>
-        <h4>Мои темы</h4>
-        <p>На экране «Алерты» можно назвать тему своими словами — например, «ИИ-агенты для малого бизнеса».
-          Когда в базу попадает новое видео, близкое к ней по смыслу (эмбеддинги названия и описания),
-          приходит личный алерт «Тема»: его видите только вы. Ищет среди того, что собирает база — RSS
-          каналов из трекера, ниши, тренды, — а не по всему YouTube. Порог 0.6 — для начала; если
-          совпадения слишком далёкие, поднимите его. Из расширения тему добавляет кнопка «Следить за темой»
-          в панели видео. Квота не тратится. С галочкой «На YouTube» тема раз в сутки ищется ещё и поиском по всему
-          YouTube за последние сутки — это один поиск из 100 в день на всю установку, не больше 5 тем в день.</p>
-        <h4>Проверка идей</h4>
-        <p>Идея на строку → вердикт по вашей базе: свободно, недавно снимали, спрос доказан или
-          провалилось. Результат можно выгрузить в CSV.</p>
-        <h4>Календарь</h4>
-        <p>Черновики (из брифа и «Разбора метаданных») по дням выпуска — неделя или месяц. Перетащите черновик на день,
-          чтобы запланировать его, или нажмите на него и укажите точное время. Время показано в вашем часовом поясе,
-          хранится в UTC. В редакторе — лучшее время публикации ниши (по UTC) и попали ли вы в него: это корреляция,
-          а не гарантия. За сутки до выпуска и в момент выпуска придёт напоминание в Telegram и в дайджест — пока
-          черновик не привязан к вышедшему видео (кнопка «привязать» на «Разборе метаданных»). Просроченные
-          черновики подсвечены. Квота не тратится.</p>
-        <h4>Партнёры для коллабораций</h4>
-        <p>Блок на экране канала и на «Мои каналы»: с кем снять совместное видео или обменяться упоминаниями. Берём
-          200 самых похожих по теме каналов (по смыслу их видео) и оставляем тех, кто вашего размера (от ×0,5 до ×2
-          подписчиков), выпускал видео за последние 30 дней и не похож на шаблонный конвейер. Рядом — похожесть,
-          размер, когда было последнее видео и рост подписчиков за 30 дней; под таблицей — сколько отсеяно и почему.
-          Кнопка «В трекер» добавляет канал в трекер. Только среди собранных каналов; контактов YouTube не даёт —
-          пишите через ссылки на канале. Квота не тратится.</p>
-        <h4>Чистая прибыль</h4>
-        <p>Карточка на экранах канала и ниши: выручка с рекламы минус ваши расходы на производство. Расходы задаются
-          профилями на экране «Данные»: цена за видео (монтаж, стоки), цена за минуту видео (озвучка, генерация) и
-          постоянные расходы в месяц (подписки). Для канала считается месяц: его просмотры и длинные видео за 30 дней;
-          для ниши — типичное видео (медианные просмотры и длина) и месяц таких видео. Выручка — вилка, потому что RPM
-          никто не публикует, поэтому и прибыль — вилка; «не ясно» — честный ответ для большинства ниш. «Окупается с» —
-          сколько просмотров нужно видео, чтобы вернуть его стоимость. У подключённого канала берётся ваш реальный RPM.
-          Если канал не проходит полный уровень YPP (1000 подписчиков), реклама может ещё не платить — об этом
-          предупреждаем. Только AdSense, без спонсоров. Квота не тратится.</p>
-        <h4>Что общего у выстреливших</h4>
-        <p>Карточка на экране ниши и в брифе: чем outlier'ы (от ×3) отличаются от обычных видео (до ×1,5) той же
-          ниши — число или вопрос в заголовке, скобки, слово заглавными, эмодзи, длина видео и заголовка, число
-          тегов, выходные и время суток публикации (UTC). Считается по числам, без ИИ, Shorts и длинные отдельно.
-          Показано только то, где разница заметна: от 15 п.п. для долей или в 1,3 раза для медиан, при 10+ видео
-          в каждой группе; рядом — размеры выборок, остальное свёрнуто. Если больше половины outlier'ов — один
-          канал, это его привычки, а не ниши: об этом предупреждаем. Это корреляция, а не причина, и при дюжине
-          признаков один-два могут сойтись случайно. Квота не тратится.</p>
-        <h4>Где заходить</h4>
-        <p>Все ниши в одной таблице с баллом 0–100. Балл — взвешенная сумма шести слагаемых: спрос (тренд
-          просмотров за 30 дней против 90 до них), предложение (растёт ли выпуск — чем быстрее, тем теснее),
-          новички (доля молодых каналов с прорывом), RPM, доля шаблонных каналов и сигналов по правилам
-          монетизации. В каждой ячейке — баллы 0–100 и само значение; клик по заголовку сортирует по любому
-          столбцу. Веса — наше суждение, а RPM — оценка, а не данные YouTube. Ниша без балла слишком мала, чтобы
-          судить: она не «плохая», а не оценена. Выберите 2–3 ниши и нажмите «Сравнить выбранные» — все числа
-          встанут рядом. Расчёт кэшируется на час, «Пересчитать» обновляет. Квота не тратится.</p>
-        <h4>Другой язык</h4>
-        <p>Формат выстрелил на одном языке — снят ли он на другом? Выберите пару языков: покажем outlier'ы
-          исходного языка и по каждому — есть ли на целевом языке похожее по смыслу видео. «Не снято» — похожего
-          нет; «снимали слабо» — есть, но ни одно не outlier; «уже есть хит» — похожее видео там уже сработало.
-          «Ещё каналов» — сколько других каналов на исходном языке повторили формат. Это оценка по вашей базе:
-          если на целевом языке собрано мало видео (меньше 200), «не снято» может значить «не собрано» — сверху
-          будет подсказка. Сходство между языками считается строже, чем внутри одного: порог по умолчанию 0,62.
-          Ниша ограничивает только исходные видео. Из расширения — кнопка «На другом языке?». Квота не тратится.</p>
-        <h4>Транскрипты</h4>
-        <p>Ручная очередь: транскрипты никогда не скачиваются автоматически — текст вставляется
-          вручную, после чего по нему работает гибридный поиск (векторный + полнотекстовый). Кнопка «Крючок» у
-          готового транскрипта оценивает первые ~30 секунд по тексту: вопрос зрителю, цифра, обещание, интрига,
-          обращение «ты», короткая первая фраза, темп; минус за приветствия и «подпишись». Это оценка текста,
-          не картинки и монтажа, и корреляция, а не причинность. LLM-разбор по галочке отправляет текст
-          провайдеру и может стоить денег. Бенчмарк ниши работает от 10 транскриптов outliers и 10 обычных видео.</p>
-        <h4>Карта ниш</h4>
-        <p>Каналы, сгруппированные k-means по эмбеддингам их видео: ниши, найденные без ручной
-          разметки, с медианным множителем, скоростью, долей faceless и числом крупных конкурентов.
-          Колонка «Тренд» — то же, что у ниши; на порядок кластеров она не влияет.</p>
-        <h4>Проверить заголовки</h4>
-        <p>Оценка заголовков 0–100 по паттернам выбранной ниши и проверка на дубли уже вышедших
-          видео; генерация новых заголовков требует LLM. Карточка «Проверить вступление»: вставьте первые
-          20–30 секунд сценария, получите балл и советы; текст нигде не сохраняется и никуда не отправляется.</p>
-        <h4>Избранное</h4>
-        <p>Swipe file: видео и каналы, сохранённые из расширения, со снимком метрик на момент
-          сохранения, папкой и заметкой.</p>
-        <h4>Стили и похожие превью</h4>
-        <p>На экране ниши — группы похожих по картинке превью и как каждая заходит (медиана множителя и
-          просмотров), плюс поиск превью по описанию («red arrow, shocked face», лучше по-английски). В брифе —
-          «Похожие по картинке»: у кого ещё превью выглядит так же. Сравнивает нейросеть CLIP локально: стиль и
-          содержимое, а не надписи. Векторы считаются по кнопке на экране ниши или воркером
-          (<code>WORKER_THUMB_EMBED=1</code>, по умолчанию выключено): модели занимают около 0,6 ГБ на диске и до
-          0,7 ГБ памяти во время расчёта, около секунды на превью вместе со скачиванием, превью качаются с i.ytimg.com, квота не тратится, хранится только вектор.</p>
-        <h4>Перепаковки</h4>
-        <p>Смены заголовков и обложек после публикации: «было / стало» рядом и просмотры в час
-          за 48 часов до и после смены. Смену обложки не видно в API (ссылка на картинку не меняется),
-          поэтому воркер сам сравнивает картинки у отслеживаемых каналов — история начинается с
-          момента, когда канал добавлен в трекер. Эффект — наблюдение, не причина.</p>
-        <h4>Спонсоры</h4>
-        <p>Какие бренды платят авторам в нише или на канале: доля видео со спонсором или промокодом, топ брендов,
-          средние просмотры видео со спонсором и без. Данные берутся из описаний видео (упоминание спонсора,
-          промокод, партнёрская ссылка) на русском и английском; партнёрские ссылки, например Amazon, показаны
-          отдельно и спонсорством не считаются. Это нижняя граница: интеграция, не названная в описании, не видна.</p>
-        <h4>Пробелы в контенте</h4>
-        <p>Карточка на экране ниши: вопросы и просьбы зрителей из комментариев самых просматриваемых видео,
-          на которые в базе ещё нет видео или транскрипта. Похожие вопросы объединяются, выше — те, что спрашивали
-          чаще, с большим числом лайков и под несколькими видео. Комментарии читаются только по кнопке
-          (1 unit квоты на видео) и потом берутся из кэша. Без LLM вопросы отбираются правилами (знак вопроса,
-          «сделайте видео», «how to» и т. п., русский и английский) — шума больше. Пробел реален настолько, насколько
-          полна база. Кнопка «В бриф» открывает бриф под этот вопрос.</p>
-        <h4>Бриф из outlier</h4>
-        <p>Ссылка «бриф» на карточке видео собирает заготовку для вашего ролика: крючок из вставленного
-          транскрипта, паттерны заголовков ниши, занята ли тема, референсы превью. Сначала бесплатный
-          просмотр без LLM; кнопка «Добавить LLM-разбор» даёт угол и кандидатов в заголовки (может стоить
-          денег), «Сохранить в черновики» создаёт черновик со ссылкой на исходное видео. Что не удалось
-          собрать, названо в конце. Это исследование, а не сценарий: выберите свой угол.</p>
-        <h4>Траектория и сравнение</h4>
-        <p>В брифе и на экране сравнения (ссылка «сравнить» на карточке видео, до 5 видео): как видео набирало
-          просмотры по возрасту — в часах и днях с публикации, а не по датам, чтобы видео разных дней стояли рядом.
-          Точки — снимки воркера (каждые 3 часа первую неделю, потом раз в сутки до 30 дней); пунктир того же
-          цвета — сколько набрало бы обычное видео этого канала к тому же возрасту, это оценка. Отметки на кривой —
-          смена заголовка или обложки. У видео, найденного не сразу, начала кривой нет: «наблюдаем с …».</p>
-        <h4>Формат повторяем?</h4>
-        <p>Блок в брифе и кнопка в панели видео расширения: похожие по смыслу видео других каналов и стали ли
-          они outlier'ами. «Повторяем» — у трёх и больше каналов множитель от ×2; «разовая удача» — больше ни
-          у кого; «мало данных» — похожих видео собрано меньше пяти. Канал считается один раз, по лучшему
-          видео, чтобы канал, повторивший сам себя, не выглядел как подтверждение. Оценка по собранной базе:
-          каналы, повторившие формат, могут быть просто не собраны. Квота не тратится.</p>
-        <h4>Разбор метаданных</h4>
-        <p>Проверка черновика заголовка/описания/тегов по вашей базе — отдельные сигналы с размером
-          выборки, а не один выдуманный «SEO-балл». Черновик можно сохранить и потом привязать к
-          вышедшему видео, чтобы проверить прогноз.</p>
-        <h4>Ниши</h4>
-        <p>Список тем, под которыми вы собирали данные (поле <code>niche</code> при сборе). Внутри
-          ниши — сводка, scatter просмотров по дате публикации, hit rate по группам тегов, видео с
-          редактором тегов, выжимка комментариев и выгрузка в TSV/CSV. Ещё здесь — доля каналов ниши,
-          похожих на шаблонный конвейер: там, где их много, копировать формат опасно.</p>
-        <h4>Тренд ниши</h4>
-        <p>Блок на экране ниши и колонка в списке ниш: растёт, держится, остывает или забита. Сравниваются
-          последние 30 дней с 90 днями до них, независимо от выбранного периода: сколько видео выходит,
-          как смотрят новые видео (прогноз просмотров на 30-й день, чтобы старые и свежие были сравнимы),
-          сколько каналов создано и выстреливают ли новички. Меньше 20 видео в одном из окон — «мало данных».
-          «?» у статуса — низкая уверенность: большинство видео мы не застали молодыми, и рост может быть
-          просто тем, что недавно собрали больше.</p>
-        <h4>Мои каналы</h4>
-        <p>Подключите свои каналы через Google (свой OAuth-клиент, доступ только на чтение) — и увидите их настоящие
-          цифры из YouTube Analytics: просмотры, удержание, доход, CPM и RPM, рядом с медианами ниши и с нашей оценкой
-          RPM по открытым данным. CTR превью в API нет — только в YouTube Studio. Токен хранится зашифрованным,
-          цифры обновляются раз в день; «Отключить» отзывает доступ у Google и удаляет всё сохранённое. Настройка —
-          по шагам на самом экране.</p>
-        <p>Блок «Форматы» на том же экране: Shorts, длинные видео и трансляции по отдельности — доля просмотров
-          и сколько подписчиков приносит каждая тысяча просмотров; меняются ли просмотры Shorts и длинных вместе
-          (корреляция по неделям, не причина); часы просмотра длинных и трансляций за 365 дней до порога YPP
-          (4000 сейчас, 8000 с 01.02.2027) и примерная дата при текущем темпе. Это приближение: YouTube считает
-          «qualified watch hours» по своим правилам.</p>
-        <h4>Порог YPP</h4>
-        <p>Строка на экране канала и в панели расширения: какие пороги партнёрской программы YouTube канал
-          проходит по открытым данным — 500 или 1000 подписчиков, 3 загрузки и просмотры Shorts за 90 дней
-          (по собранным видео, то есть не меньше). Часы просмотра через API не узнать. Это не статус
-          монетизации: YouTube его не публикует, а признаки на странице (реклама, кнопка «Спонсировать»)
-          оказались ненадёжными или видны не всем. В «Найти нишу» и «Outlier-каналы» есть фильтр
-          «Пороги YPP»: оставить только каналы, у которых набраны подписчики или порог пройден по Shorts.
-          Каналы со скрытым числом подписчиков через фильтр не проходят. С 01.02.2027 YouTube повышает порог
-          для новых авторов: 1000 подписчиков и 8000 часов за 365 дней или 20 млн просмотров Shorts за 90 дней;
-          до этой даты рядом показано, как канал выглядит по новым правилам.</p>
-        <h4>Рубежи подписчиков</h4>
-        <p>На экране канала и в панели расширения: когда канал дойдёт до следующих круглых чисел
-          (1000, 10 000, 100 000…) при темпе роста за последние 30 и 90 дней. Это прямая по нашим снимкам,
-          а не данные YouTube; при малом числе снимков или без роста даты нет. Если канал из трекера
-          перешёл рубеж, приходит алерт «Рубеж».</p>
-        <h4>Сигналы по правилам монетизации</h4>
-        <p>Блок на экране канала и ниши и строка в панели канала расширения. Правила монетизации YouTube
-          описывают «неаутентичный» контент тремя категориями: шаблонный и повторяющийся, построенный на шоке и
-          эмоциональных манипуляциях, и ИИ-персона в роли эксперта по здоровью, праву, финансам или политике.
-          Для каждой показано, какие сигналы видны по открытым данным: риск шаблонности и похожие обложки,
-          доля заголовков с шок-маркерами, чувствительная тема плюс раскрытый ИИ или безликий канал. Уровни:
-          «сигналов нет», «стоит присмотреться», «заметные сигналы». Общего процента нет: решение принимают
-          люди в YouTube. ИИ-персону по открытым данным не увидеть, поэтому эта категория не бывает выше
-          «стоит присмотреться». Повторно использованный контент — отдельное правило, сюда не входит.</p>
-        <h4>Риск шаблонности</h4>
-        <p>Блок на экране канала и ниши: насколько последние видео похожи на один повторяемый шаблон
-          (похожие заголовки, одинаковые начало и конец, ровная длительность и ритм выхода).
-          Это эвристика по публичным паттернам, а не решение YouTube: серии, подкасты и музыкальные
-          каналы тоже могут получить высокий балл. Нужно минимум 10 свежих видео с эмбеддингами.</p>
-        <h4>Данные</h4>
-        <p>Состояние ключа API, базы и истории, плюс формы сбора и ручное обновление статистики.
-          Первая остановка, если какой-то раздел выглядит пустым или подозрительным.</p>
+        <h4>Overview</h4>
+        <p>Everything at once in a single request: top outlier channels, who is about to become a competitor, categories,
+          keywords and viral videos for the selected period. The starting point of every session.
+          At the top is "Last 24 hours": the same thing that arrives in the morning Telegram digest with NOTIFY_MODE=digest.</p>
+        <h4>Find a niche</h4>
+        <p>Semantic search over the already collected database (by embeddings of titles and descriptions) — free,
+          no quota. Filters: minimum multiplier, maximum subscribers, RPM estimate, video length,
+          Shorts. At the bottom is the collect form, which does spend quota.</p>
+        <h4>Viral videos</h4>
+        <p>Videos from small channels that broke out more than expected. It has filters (subscribers,
+          views, period) and a "filter funnel" at the bottom — it shows which exact threshold cut the results
+          off when the list is empty.</p>
+        <h4>Outlier channels</h4>
+        <p>The same at channel level: the best multiplier among its videos in the window and a strength band
+          0–4. The ≈ mark next to a multiplier means it was computed with a rougher formula — see the question
+          about it in the FAQ below.</p>
+        <h4>Categories</h4>
+        <p>A ranking of YouTube categories for the period with the share shift against the previous window of the same
+          length — you can rank by views or by channel count.</p>
+        <h4>Keywords</h4>
+        <p>Rising phrases (n-grams) from titles with momentum and outlier lift — how much more strongly videos with this
+          phrase break out on average than the rest.</p>
+        <h4>Top tags by category</h4>
+        <p>Authors' YouTube tags as whole tags, by category: how many videos, share and outlier lift —
+          a lift above 1.5 means the tag is tied to breakouts rather than just being popular.</p>
+        <h4>Channel tracker</h4>
+        <p>A watchlist: the background worker refreshes the channels here regularly, so only for them do
+          subscriber growth, grade and the "views over time" tab appear over time. If an
+          LLM is connected, the list can be filtered by AI labels (faceless, format, topic).</p>
+        <h4>Alerts</h4>
+        <p>Events for tracked channels — the same as what goes to Telegram or a webhook: outlier,
+          acceleration, title change, comeback after a pause, a vanished channel or video. Filter by type
+          and "new only". A channel counts as gone after two API misses at least
+          6 hours apart (deleted, hidden or blocked), and a red mark appears on its screen.
+          An exhausted quota or an API error does not count as a disappearance. No quota is spent.</p>
+        <h4>My topics</h4>
+        <p>On the "Alerts" screen you can name a topic in your own words — for example, "AI agents for small business".
+          When a new video that is close to it in meaning (embeddings of title and description) enters the database,
+          you get a personal "Topic" alert: only you see it. It searches among what the database collects — the RSS
+          of tracked channels, niches, trends — and not all of YouTube. The 0.6 threshold is a starting point; if
+          the matches are too distant, raise it. From the extension, a topic is added by the "Follow topic" button
+          in the video panel. No quota is spent. With the "On YouTube" box checked, the topic is also searched once a day across all of
+          YouTube for the last day — that is one search of the 100 per day for the whole installation, and no more than 5 topics per day.</p>
+        <h4>Idea check</h4>
+        <p>One idea per line → a verdict from your database: open, filmed recently, demand proven or
+          flopped. The result can be exported to CSV.</p>
+        <h4>Calendar</h4>
+        <p>Drafts (from the brief and "Metadata review") by release day — week or month. Drag a draft onto a day
+          to schedule it, or click it and set an exact time. Time is shown in your time zone and
+          stored in UTC. The editor shows the niche's best publishing time (in UTC) and whether you hit it: this is a correlation,
+          not a guarantee. A reminder arrives in Telegram and in the digest a day before release and at release time — until the
+          draft is linked to a published video (the "link" button on "Metadata review"). Overdue
+          drafts are highlighted. No quota is spent.</p>
+        <h4>Collaboration partners</h4>
+        <p>A block on the channel screen and on "My channels": who to make a joint video with or swap mentions with. We take
+          the 200 channels most similar by topic (by the meaning of their videos) and keep those of your size (from ×0.5 to ×2
+          of your subscribers) that posted a video in the last 30 days and don't look like a templated assembly line. Next to each —
+          similarity, size, when the last video was and subscriber growth over 30 days; under the table — how many were filtered out and why.
+          The "Track" button adds the channel to the tracker. Only among collected channels; YouTube provides no contacts —
+          reach out via the links on the channel. No quota is spent.</p>
+        <h4>Net profit</h4>
+        <p>A card on the channel and niche screens: ad revenue minus your production costs. Costs are set by
+          profiles on the "Data" screen: price per video (editing, stock), price per minute of video (voiceover, generation) and
+          fixed monthly costs (subscriptions). For a channel a month is computed: its views and long videos over 30 days;
+          for a niche — a typical video (median views and length) and a month of such videos. Revenue is a range, because nobody
+          publishes RPM, so profit is a range too; "unclear" is an honest answer for most niches. "Breaks even at" —
+          how many views a video needs to pay back its cost. For a connected channel your real RPM is used.
+          If the channel does not reach the full YPP tier (1,000 subscribers), ads may not pay yet — we
+          warn about it. AdSense only, no sponsors. No quota is spent.</p>
+        <h4>What breakouts have in common</h4>
+        <p>A card on the niche screen and in the brief: how outliers (from ×3) differ from ordinary videos (up to ×1.5) of the same
+          niche — a number or a question in the title, brackets, an all-caps word, emoji, video and title length, number of
+          tags, weekends and time of day of publication (UTC). Computed from the numbers, no AI, Shorts and long videos separately.
+          Only differences that are notable are shown: from 15 pp for shares or 1.3x for medians, with 10+ videos
+          in each group; sample sizes are shown alongside, the rest is collapsed. If more than half of the outliers come from one
+          channel, those are its habits, not the niche's: we warn about that. This is a correlation, not a cause, and with a dozen
+          traits one or two may line up by chance. No quota is spent.</p>
+        <h4>Where to enter</h4>
+        <p>All niches in one table with a score of 0–100. The score is a weighted sum of six terms: demand (the trend of
+          views over 30 days against the 90 before), supply (whether output is growing — the faster, the more crowded),
+          newcomers (the share of young channels that broke out), RPM, the share of templated channels and monetization-policy
+          signals. Each cell has 0–100 points and the value itself; clicking a header sorts by any
+          column. The weights are our judgement, and RPM is an estimate, not YouTube data. A niche without a score is too small to
+          judge: it is not "bad", it is just not rated. Select 2–3 niches and press "Compare selected" — all the numbers
+          line up side by side. The calculation is cached for an hour, "Recalculate" refreshes it. No quota is spent.</p>
+        <h4>Another language</h4>
+        <p>A format broke out in one language — has it been made in another? Pick a pair of languages: we show the outliers of the
+          source language and, for each, whether the target language has a video similar in meaning. "Not made" — there is no similar one;
+          "made weakly" — there is, but none is an outlier; "already a hit" — a similar video already worked there.
+          "More channels" — how many other channels in the source language repeated the format. This is an estimate from your database:
+          if few videos are collected in the target language (fewer than 200), "not made" may mean "not collected" — a hint
+          appears at the top. Similarity across languages is computed more strictly than within one: the default threshold is 0.62.
+          A niche limits only the source videos. From the extension — the "In another language?" button. No quota is spent.</p>
+        <h4>Transcripts</h4>
+        <p>A manual queue: transcripts are never downloaded automatically — the text is pasted in
+          by hand, after which hybrid search (vector + full-text) works over it. The "Hook" button on a
+          finished transcript scores the first ~30 seconds from the text: a question to the viewer, a number, a promise, intrigue,
+          addressing the viewer as "you", a short first phrase, pace; minus points for greetings and "subscribe". This scores the text,
+          not the picture or the editing, and it is a correlation, not causation. The LLM analysis, when ticked, sends the text to the
+          provider and may cost money. The niche benchmark works from 10 outlier transcripts and 10 ordinary videos.</p>
+        <h4>Niche map</h4>
+        <p>Channels grouped by k-means over the embeddings of their videos: niches found without manual
+          labelling, with median multiplier, speed, faceless share and number of large competitors.
+          The "Trend" column is the same as for a niche; it does not affect the order of clusters.</p>
+        <h4>Score titles</h4>
+        <p>A title score of 0–100 by the patterns of the selected niche and a check for duplicates of already published
+          videos; generating new titles requires an LLM. The "Check the intro" card: paste the first
+          20–30 seconds of the script, get a score and tips; the text is not stored anywhere and is not sent anywhere.</p>
+        <h4>Saved</h4>
+        <p>Swipe file: videos and channels saved from the extension, with a snapshot of metrics at the time of
+          saving, a folder and a note.</p>
+        <h4>Styles and similar thumbnails</h4>
+        <p>On the niche screen — groups of thumbnails similar by picture and how each performs (median multiplier and
+          views), plus a thumbnail search by description ("red arrow, shocked face", better in English). In the brief —
+          "Similar by picture": who else has a thumbnail that looks the same. The CLIP neural network compares locally: style and
+          content, not text overlays. Vectors are computed by a button on the niche screen or by the worker
+          (<code>WORKER_THUMB_EMBED=1</code>, off by default): the models take about 0.6 GB on disk and up to
+          0.7 GB of memory during computation, about a second per thumbnail including the download, thumbnails are downloaded from i.ytimg.com, no quota is spent, only the vector is stored.</p>
+        <h4>Repackaging</h4>
+        <p>Title and thumbnail changes after publication: "before / after" side by side and views per hour
+          for 48 hours before and after the change. A thumbnail change is not visible in the API (the image link does not change),
+          so the worker compares the images itself for tracked channels — the history starts from
+          the moment the channel was added to the tracker. The effect is an observation, not a cause.</p>
+        <h4>Sponsors</h4>
+        <p>Which brands pay creators in a niche or on a channel: the share of videos with a sponsor or promo code, top brands,
+          average views of videos with and without a sponsor. Data comes from video descriptions (a sponsor mention,
+          promo code, affiliate link) in Russian and English; affiliate links, such as Amazon, are shown
+          separately and are not counted as sponsorship. This is a lower bound: an integration not named in the description is not visible.</p>
+        <h4>Content gaps</h4>
+        <p>A card on the niche screen: viewer questions and requests from the comments of the most viewed videos
+          that have no video or transcript in the database yet. Similar questions are merged; those asked more often,
+          with more likes and under several videos rank higher. Comments are read only on a button press
+          (1 unit of quota per video) and afterwards come from the cache. Without an LLM, questions are picked by rules (a question mark,
+          "make a video", "how to" and so on, Russian and English) — there is more noise. A gap is only as real as the
+          database is complete. The "To brief" button opens a brief for that question.</p>
+        <h4>Brief from an outlier</h4>
+        <p>The "brief" link on a video card assembles a starting point for your video: a hook from a pasted
+          transcript, the niche's title patterns, whether the topic is taken, thumbnail references. First a free
+          preview without an LLM; the "Add LLM analysis" button gives an angle and title candidates (may cost
+          money), "Save to drafts" creates a draft linking to the source video. What could not be
+          collected is named at the end. This is research, not a script: pick your own angle.</p>
+        <h4>Trajectory and compare</h4>
+        <p>In the brief and on the compare screen (the "compare" link on a video card, up to 5 videos): how a video gained
+          views by age — in hours and days since publication, not by date, so videos from different days stand side by side.
+          The points are worker snapshots (every 3 hours during the first week, then once a day up to 30 days); a dashed line of the same
+          colour shows how many views an ordinary video of this channel would have by the same age, which is an estimate. Marks on the curve are a
+          title or thumbnail change. For a video found late the start of the curve is missing: "observed from …".</p>
+        <h4>Is the format repeated?</h4>
+        <p>A block in the brief and a button in the extension's video panel: videos of other channels similar in meaning and whether
+          they became outliers. "Repeated" — three or more channels with a multiplier from ×2; "one-off luck" — no one
+          else; "not enough data" — fewer than five similar videos collected. A channel is counted once, by its best
+          video, so that a channel that repeated itself does not look like confirmation. An estimate from the collected database:
+          channels that repeated the format may simply not be collected. No quota is spent.</p>
+        <h4>Metadata review</h4>
+        <p>A check of a draft title/description/tags against your database — separate signals with sample
+          sizes, not one made-up "SEO score". A draft can be saved and later linked to a
+          published video to check the prediction.</p>
+        <h4>Niches</h4>
+        <p>A list of the topics under which you collected data (the <code>niche</code> field when collecting). Inside a
+          niche — a summary, a scatter of views by publication date, hit rate by tag groups, videos with a
+          tag editor, a comment digest and an export to TSV/CSV. Also here is the share of niche channels
+          that look like a templated assembly line: where there are many, copying the format is risky.</p>
+        <h4>Niche trend</h4>
+        <p>A block on the niche screen and a column in the niche list: growing, stable, cooling or saturated. The last
+          30 days are compared with the 90 days before them, regardless of the selected period: how many videos come out,
+          how new videos perform (a forecast of views at day 30, so old and fresh ones are comparable),
+          how many channels were created and whether newcomers break out. Fewer than 20 videos in one of the windows — "not enough data".
+          A "?" on the status means low confidence: we did not catch most videos young, and the growth may be
+          just that more was collected recently.</p>
+        <h4>My channels</h4>
+        <p>Connect your own channels through Google (your own OAuth client, read-only access) and you will see their real
+          numbers from YouTube Analytics: views, retention, revenue, CPM and RPM, next to niche medians and our estimate of
+          RPM from public data. Thumbnail CTR is not in the API — only in YouTube Studio. The token is stored encrypted,
+          numbers refresh once a day; "Disconnect" revokes access at Google and deletes everything saved. Setup is
+          step by step on the screen itself.</p>
+        <p>The "Formats" block on the same screen: Shorts, long videos and live streams separately — the share of views
+          and how many subscribers each thousand views brings; whether Shorts and long-video views move together
+          (a weekly correlation, not a cause); watch hours of long videos and streams over 365 days towards the YPP threshold
+          (4,000 now, 8,000 from 01.02.2027) and an approximate date at the current pace. This is an approximation: YouTube counts
+          "qualified watch hours" by its own rules.</p>
+        <h4>YPP threshold</h4>
+        <p>A line on the channel screen and in the extension panel: which YouTube Partner Program thresholds the channel
+          passes by public data — 500 or 1,000 subscribers, 3 uploads and Shorts views over 90 days
+          (from collected videos, so at least). Watch hours cannot be learned via the API. This is not a monetization
+          status: YouTube does not publish it, and on-page signs (ads, the "Sponsor" button)
+          turned out to be unreliable or not visible to everyone. "Find a niche" and "Outlier channels" have a "YPP thresholds"
+          filter: keep only channels that have the subscribers or passed the threshold via Shorts.
+          Channels with a hidden subscriber count do not pass the filter. From 01.02.2027 YouTube raises the threshold
+          for new creators: 1,000 subscribers and 8,000 hours over 365 days or 20M Shorts views over 90 days;
+          until that date it is shown alongside how the channel looks under the new rules.</p>
+        <h4>Subscriber milestones</h4>
+        <p>On the channel screen and in the extension panel: when the channel will reach the next round numbers
+          (1,000, 10,000, 100,000…) at the growth pace of the last 30 and 90 days. This is a straight line over our snapshots,
+          not YouTube data; with few snapshots or no growth there is no date. If a tracked channel
+          passes a milestone, a "Milestone" alert arrives.</p>
+        <h4>Monetization-policy signals</h4>
+        <p>A block on the channel and niche screens and a line in the extension's channel panel. The YouTube monetization rules
+          describe "inauthentic" content in three categories: templated and repetitive, built on shock and
+          emotional manipulation, and an AI persona acting as an expert in health, law, finance or politics.
+          For each it shows which signals are visible in public data: template risk and similar thumbnails,
+          the share of titles with shock markers, a sensitive topic plus disclosed AI or a faceless channel. Levels:
+          "no signals", "worth watching", "clear signals". There is no overall percentage: the decision is made by
+          people at YouTube. An AI persona cannot be seen in public data, so this category never rises above
+          "worth watching". Reused content is a separate rule and is not included here.</p>
+        <h4>Template risk</h4>
+        <p>A block on the channel and niche screens: how closely the latest videos resemble one repeatable template
+          (similar titles, the same opening and ending, even duration and release rhythm).
+          This is a heuristic over public patterns, not a YouTube decision: series, podcasts and music
+          channels can also get a high score. At least 10 recent videos with embeddings are needed.</p>
+        <h4>Data</h4>
+        <p>The state of the API key, the database and history, plus collect forms and a manual stats refresh.
+          The first stop if some section looks empty or suspicious.</p>
       </div>
     </div>
 
     <div class="card">
-      ${sectionHead('Как читать метрики', 'глоссарий')}
+      ${sectionHead('How to read the metrics', 'glossary')}
       <dl class="glossary">
-        <div><dt>Множитель / outlier score</dt>
-          <dd>Просмотры видео, делённые на медиану просмотров предыдущих 10 обычных (не Shorts)
-            загрузок того же канала. Возрастно-нормированная версия дополнительно поправляет на то,
-            сколько дней видео уже живёт — иначе свежий ролик нечестно проигрывает старому.</dd></div>
-        <div><dt>Значок ≈ рядом с множителем</dt>
-          <dd>В базе меньше 4 видео этого канала — медианную базу посчитать не из чего, и число
-            откатывается на формулу NexLev: просмотры делённые на среднее за всю жизнь канала. Один
-            вирусный ролик раздувает такое среднее в разы, поэтому цифра приблизительная. Лечится
-            одним сбором — <code>collect_channel</code> на весь канал.</dd></div>
+        <div><dt>Multiplier / outlier score</dt>
+          <dd>A video's views divided by the median views of the channel's previous 10 ordinary (non-Shorts)
+            uploads. The age-normalised version additionally adjusts for
+            how many days the video has been live — otherwise a fresh video unfairly loses to an old one.</dd></div>
+        <div><dt>The ≈ mark next to a multiplier</dt>
+          <dd>There are fewer than 4 videos of this channel in the database — there is nothing to compute a median baseline from, and the number
+            falls back to the NexLev formula: views divided by the channel's lifetime average. One
+            viral video inflates such an average several times over, so the figure is approximate. Fixed
+            by one collect — <code>collect_channel</code> for the whole channel.</dd></div>
         <div><dt>VSR (views per subscriber)</dt>
-          <dd>Просмотры на одного подписчика — насколько видео вышло за пределы своей подписной
-            базы, в чужие рекомендации.</dd></div>
+          <dd>Views per subscriber — how far a video went beyond its subscriber
+            base, into other people's recommendations.</dd></div>
         <div><dt>VPH (views per hour)</dt>
-          <dd>«За всё время» — просто просмотры делённые на часы с публикации, это и есть VPH-бейдж
-            у NexLev. «За 24 часа» — сколько просмотров ролик набрал именно за последние сутки;
-            появляется только когда по нему накопилась история снимков.</dd></div>
-        <div><dt>Ускорение</dt>
-          <dd>VPH за сегодня, делённое на VPH за вчера. Больше 1 — разгоняется, меньше 1 — затухает.</dd></div>
-        <div><dt>Momentum / грейд канала</dt>
-          <dd>Просмотров в день за последние 30 дней, делённое на просмотров в день за всю жизнь
-            канала, переведённое в шкалу Social Blade A++…D.</dd></div>
-        <div><dt>RPM и оценка дохода</dt>
-          <dd>RPM ниши показан вилкой «от–до», а не одним числом: середина — оценка по категории YouTube
-            (как у NexLev) с поправкой 0,7 на немонетизированные просмотры, края — вдвое меньше и вдвое больше.
-            Так честнее: YouTube RPM по темам не публикует, а открытые оценки для одной ниши расходятся
-            до 7 раз. Фильтр RPM в поиске сравнивает середину. Все оценки дохода — только реклама
-            (AdSense), без спонсорских интеграций; их показывает «Карта спонсоров». Реальный RPM своих
-            каналов виден в «Мои каналы» рядом с нашей вилкой.</dd></div>
+          <dd>"All time" is simply views divided by hours since publication, which is the VPH badge
+            at NexLev. "24 hours" is how many views the video gained specifically in the last day;
+            it appears only once a history of snapshots has accumulated for it.</dd></div>
+        <div><dt>Acceleration</dt>
+          <dd>Today's VPH divided by yesterday's VPH. Above 1 — speeding up, below 1 — fading.</dd></div>
+        <div><dt>Momentum / channel grade</dt>
+          <dd>Views per day over the last 30 days divided by views per day over the channel's whole life,
+            converted to the Social Blade A++…D scale.</dd></div>
+        <div><dt>RPM and revenue estimate</dt>
+          <dd>Niche RPM is shown as a "from–to" range, not a single number: the midpoint is an estimate by YouTube category
+            (as at NexLev) with a 0.7 adjustment for non-monetized views, the edges are half and double.
+            This is fairer: YouTube does not publish RPM by topic, and public estimates for one niche differ
+            by up to 7 times. The RPM filter in search compares the midpoint. All revenue estimates are ads only
+            (AdSense), without sponsorship integrations; those are shown by the "Sponsor map". The real RPM of your own
+            channels is visible in "My channels" next to our range.</dd></div>
         <div><dt>period / period_by</dt>
-          <dd><code>period_by="published"</code> (по умолчанию) — что вышло в окне по дате публикации.
-            <code>period_by="discovered"</code> — что мы сами впервые увидели в окне, независимо от
-            даты публикации. У NexLev в «Last 24 hours» встречаются ролики годовалой давности —
-            это ровно discovered-режим; чтобы воспроизвести его поведение, переключайтесь на discovered.</dd></div>
-        <div><dt>Воронка фильтров и hint</dt>
-          <dd>Если раздел вернул пусто, внизу страницы — сколько видео осталось после каждого
-            фильтра и пояснение, какой именно порог всё отсёк. Пустой результат почти всегда
-            значит «в это окно ничего не собрано», а не «ничего не трендит».</dd></div>
+          <dd><code>period_by="published"</code> (the default) — what came out in the window by publication date.
+            <code>period_by="discovered"</code> — what we first saw ourselves in the window, regardless of
+            publication date. At NexLev, "Last 24 hours" contains videos from a year ago —
+            that is exactly the discovered mode; to reproduce its behaviour, switch to discovered.</dd></div>
+        <div><dt>Filter funnel and hint</dt>
+          <dd>If a section returned nothing, the bottom of the page shows how many videos remained after each
+            filter and an explanation of which threshold cut everything off. An empty result almost always
+            means "nothing is collected for this window", not "nothing is trending".</dd></div>
       </dl>
     </div>
 
     <div class="card">
-      ${sectionHead('С чего начать', 'день первый')}
+      ${sectionHead('Getting started', 'day one')}
       <div class="prose">
-        <p>1. На странице «Данные» впишите канал (@handle, UC-id или ссылку) и нажмите
-          <strong>«Собрать канал»</strong>. Это уходит через плейлист загрузок — около 1 unit
-          квоты на 50 видео, поиск не тратится. Повторите для 20–50 каналов вашей темы.</p>
-        <p>2. Если темы в базе ещё нет вообще — используйте поле поискового запроса
-          (<strong>«Собрать поиском»</strong>). Он единственный тратит поиск: 1 из 100 вызовов в сутки.</p>
-        <p>3. Смотрите разделы — они бесплатны, обновляйте сколько угодно раз кнопкой «Обновить»
-          в шапке.</p>
-        <p>4. Держите воркер включённым (<code>docker compose up -d worker</code>): через сутки
-          появится VPH за 24 часа и прирост, через неделю — рост каналов и momentum, через месяц —
-          можно пересчитать кривую зрелости под свои ниши.</p>
+        <p>1. On the "Data" page enter a channel (@handle, UC-id or link) and press
+          <strong>"Collect channel"</strong>. This goes through the uploads playlist — about 1 unit of
+          quota per 50 videos, search is not spent. Repeat for 20–50 channels in your topic.</p>
+        <p>2. If there is no topic in the database at all yet, use the search query field
+          (<strong>"Collect by search"</strong>). It is the only one that spends search: 1 of 100 calls per day.</p>
+        <p>3. Browse the sections — they are free, refresh as many times as you like with the "Refresh" button
+          in the header.</p>
+        <p>4. Keep the worker running (<code>docker compose up -d worker</code>): after a day
+          VPH over 24 hours and the gain appear, after a week — channel growth and momentum, after a month —
+          you can recalculate the maturation curve for your niches.</p>
       </div>
     </div>
 
     <div class="card">
-      ${sectionHead('FAQ', 'частые вопросы')}
+      ${sectionHead('FAQ', 'frequently asked questions')}
       <div class="faq">
         <details>
-          <summary>Раздел вернул пусто — что не так?</summary>
-          <div class="a">Почти никогда не «ничего не трендит» — почти всегда «в это окно ничего не
-            собрано» или порог фильтра отсёк все строки. Прокрутите вниз до блока «Воронка фильтров»:
-            там видно, на каком шаге список опустел, и подсказку, что с этим делать. Проверьте
-            заодно окно на странице «Данные» — там показано, сколько видео реально попало в
-            выбранный период.</div>
+          <summary>A section returned nothing — what is wrong?</summary>
+          <div class="a">Almost never "nothing is trending" — almost always "nothing is collected for this
+            window" or a filter threshold cut off all the rows. Scroll down to the "Filter funnel" block:
+            it shows at which step the list became empty, and a hint on what to do about it. Also check
+            the window on the "Data" page — it shows how many videos actually fall in the
+            selected period.</div>
         </details>
         <details>
-          <summary>Что означает «за последние 24 часа»?</summary>
-          <div class="a">По умолчанию — по дате публикации (<code>period_by=published</code>). Есть
-            второй режим, <code>discovered</code> — по дате, когда система сама впервые увидела
-            видео. Подробнее — в глоссарии выше, пункт «period / period_by».</div>
+          <summary>What does "last 24 hours" mean?</summary>
+          <div class="a">By default — by publication date (<code>period_by=published</code>). There is a
+            second mode, <code>discovered</code> — by the date the system first saw the
+            video itself. More in the glossary above, under "period / period_by".</div>
         </details>
         <details>
-          <summary>Почему у множителя канала стоит значок ≈?</summary>
-          <div class="a">Значит в базе меньше 4 видео этого канала, и множитель посчитан по более
-            грубой формуле NexLev (просмотры / среднее за всю жизнь), а не по медиане прошлых
-            загрузок. Соберите канал целиком через <code>collect_channel</code>, и значок исчезнет
-            сам собой, как только видео станет 4 и больше.</div>
+          <summary>Why does the channel multiplier have a ≈ mark?</summary>
+          <div class="a">It means there are fewer than 4 videos of this channel in the database, and the multiplier was computed with the rougher
+            NexLev formula (views / lifetime average) instead of the median of past
+            uploads. Collect the whole channel via <code>collect_channel</code>, and the mark disappears
+            by itself as soon as there are 4 or more videos.</div>
         </details>
         <details>
-          <summary>Сколько это стоит по квоте YouTube?</summary>
-          <div class="a">Поиск (<code>collect_niche</code>) — отдельная корзина, всего 100 вызовов
-            в сутки. Всё остальное — сбор канала, обновление статистики, чтение разделов — идёт из
-            общего пула на 10 000 units в сутки и стоит копейки: около 1 unit на 50 видео. Разделы
-            дашборда (вирусные видео, категории, ключевые слова, аналитика канала) вообще бесплатны —
-            они читают уже собранную базу, а не ходят в YouTube заново.</div>
+          <summary>How much does this cost in YouTube quota?</summary>
+          <div class="a">Search (<code>collect_niche</code>) is a separate bucket, only 100 calls
+            per day. Everything else — collecting a channel, refreshing stats, reading sections — comes from the
+            shared pool of 10,000 units per day and costs pennies: about 1 unit per 50 videos. The dashboard
+            sections (viral videos, categories, keywords, channel analytics) are completely free —
+            they read the already collected database and do not go to YouTube again.</div>
         </details>
         <details>
-          <summary>Я поправил код, но изменений не видно</summary>
-          <div class="a">Если правили <code>frontend/*</code> (HTML/CSS/JS) — просто перезагрузите
-            страницу, папка примонтирована в контейнер только для чтения. Если правили
-            <code>backend/*.py</code> — веб-сервер (uvicorn) не перечитывает код на лету даже с
-            примонтированной папкой, нужен рестарт процесса:
-            <code>docker compose restart web</code>. Пересборка образа (<code>docker compose build</code>)
-            нужна вообще только когда меняется <code>requirements.txt</code>.</div>
+          <summary>I changed the code but the changes are not visible</summary>
+          <div class="a">If you edited <code>frontend/*</code> (HTML/CSS/JS) — just reload
+            the page, the folder is mounted into the container read-only. If you edited
+            <code>backend/*.py</code> — the web server (uvicorn) does not reread code on the fly even with a
+            mounted folder, the process needs a restart:
+            <code>docker compose restart web</code>. Rebuilding the image (<code>docker compose build</code>)
+            is needed only when <code>requirements.txt</code> changes.</div>
         </details>
         <details>
-          <summary>Docker собирается вечно и падает с ошибкой Docker Hub</summary>
-          <div class="a">Это сеть, не код: <code>lookup auth.docker.io: i/o timeout</code> значит
-            Docker не достучался до реестра образов. Чаще всего виноват включённый VPN — отключите
-            и повторите; если не помогло, перезапустите Docker Desktop. Проверить:
-            <code>curl -sI https://auth.docker.io/token</code> и <code>docker pull hello-world</code>.</div>
+          <summary>Docker builds forever and fails with a Docker Hub error</summary>
+          <div class="a">This is the network, not the code: <code>lookup auth.docker.io: i/o timeout</code> means
+            Docker could not reach the image registry. Most often an enabled VPN is to blame — turn it off
+            and retry; if that did not help, restart Docker Desktop. To check:
+            <code>curl -sI https://auth.docker.io/token</code> and <code>docker pull hello-world</code>.</div>
         </details>
         <details>
-          <summary>Откуда берутся VPH за 24 часа, ускорение и рост?</summary>
-          <div class="a">YouTube API отдаёт только «сколько просмотров прямо сейчас» — снимок без
-            истории. Все скоростные метрики существуют только потому, что фоновый воркер регулярно
-            записывает эти снимки. Без запущенного <code>docker compose up -d worker</code> такие
-            поля останутся пустыми независимо от того, сколько каналов вы собрали.</div>
+          <summary>Where do VPH over 24 hours, acceleration and growth come from?</summary>
+          <div class="a">The YouTube API gives only "how many views right now" — a snapshot with no
+            history. All the speed metrics exist only because the background worker regularly
+            records these snapshots. Without a running <code>docker compose up -d worker</code> such
+            fields stay empty no matter how many channels you collected.</div>
         </details>
         <details>
-          <summary>Это то же самое, что NexLev?</summary>
-          <div class="a">Те же разделы и по возможности те же формулы (сверка — в
-            <code>outlierScoreNexlev</code>), но локально, бесплатно и с одним улучшением: базовая
-            линия для множителя — медиана прошлых загрузок канала, а не среднее за всю жизнь,
-            которое один вирусный ролик может исказить в 20+ раз.</div>
+          <summary>Is this the same as NexLev?</summary>
+          <div class="a">The same sections and, where possible, the same formulas (cross-checked in
+            <code>outlierScoreNexlev</code>), but local, free and with one improvement: the baseline
+            for the multiplier is the median of the channel's past uploads, not the lifetime average,
+            which one viral video can distort by 20x or more.</div>
         </details>
         <details>
-          <summary>Нужен платный ключ к ИИ для классификации ниш?</summary>
-          <div class="a">Нет. Без LLM сервер отдаёт сырые данные (заголовки, описания, обложки,
-            цифры), а смысловые решения вроде «это faceless-канал» или «подходит под эту нишу»
-            принимает модель, которая вызывает MCP-инструменты в диалоге — она у вас уже есть в
-            Claude Desktop. Если хочется, чтобы метки ставились сами в фоне, задайте
-            <code>LLM_PROVIDER</code> в <code>.env</code>: OpenRouter (есть бесплатные модели,
-            суточный бюджет ограничивается) или локальный Ollama — тогда ничего не уходит с
-            машины.</div>
+          <summary>Do I need a paid AI key to classify niches?</summary>
+          <div class="a">No. Without an LLM the server returns raw data (titles, descriptions, thumbnails,
+            numbers), and judgement calls like "this is a faceless channel" or "fits this niche"
+            are made by the model that calls the MCP tools in a conversation — you already have it in
+            Claude Desktop. If you want labels to be set automatically in the background, set
+            <code>LLM_PROVIDER</code> in <code>.env</code>: OpenRouter (there are free models,
+            the daily budget is limited) or a local Ollama — then nothing leaves your
+            machine.</div>
         </details>
         <details>
-          <summary>Ключ не работает или квота внезапно кончилась</summary>
-          <div class="a">Запустите диагностику: <code>make doctor</code> (или
-            <code>docker compose run --rm mcp python cli.py doctor</code>). Она по порядку
-            проверяет формат ключа, что API реально отвечает, включён ли YouTube Data API v3 в
-            Google Cloud Console, ограничения по IP/referrer у ключа и состояние базы — и печатает
-            конкретный список того, что чинить.</div>
+          <summary>The key does not work or the quota suddenly ran out</summary>
+          <div class="a">Run the diagnostics: <code>make doctor</code> (or
+            <code>docker compose run --rm mcp python cli.py doctor</code>). It checks in order
+            the key format, that the API actually responds, whether YouTube Data API v3 is enabled in
+            Google Cloud Console, IP/referrer restrictions on the key and the state of the database — and prints
+            a concrete list of what to fix.</div>
         </details>
       </div>
     </div>
@@ -390,20 +390,20 @@ async function viewHelp() {
   fillScores();
 }
 
-/* План 23: каждое число -- данные YouTube или оценка niche-finder, и как оно
-   посчитано. Тот же каталог, что у подсказок «?» и MCP-инструмента explain_scores. */
+/* Plan 23: every number is either YouTube data or a niche-finder estimate, and how it is
+   calculated. The same catalog as the "?" hints and the explain_scores MCP tool. */
 async function fillScores() {
   const box = document.querySelector('#helpScores');
   try {
     const d = await api('/api/scores');
     const rows = Object.values(d.scores).sort((a, b) => (a.source === b.source ? 0 : a.source === 'youtube' ? -1 : 1));
-    box.innerHTML = `${sectionHead('Откуда каждое число', 'данные YouTube отдельно от оценок niche-finder — правила YouTube API требуют не выдавать свои метрики за данные YouTube')}
+    box.innerHTML = `${sectionHead('Where each number comes from', 'YouTube data kept apart from niche-finder estimates — the YouTube API rules forbid passing off your own metrics as YouTube data')}
       ${table([
-        { label: 'Число', wrap: true, render: (r) => `<b>${esc(r.name)}</b>` },
-        { label: 'Источник', render: (r) => (r.source === 'youtube' ? 'данные YouTube'
-          : '<span class="est">оценка niche-finder</span>') },
-        { label: 'Как считается', wrap: true, render: (r) => esc(r.formula) },
-        { label: 'С какой выборки', wrap: true, render: (r) => esc(r.minSample || '—') },
+        { label: 'Number', wrap: true, render: (r) => `<b>${esc(r.name)}</b>` },
+        { label: 'Source', render: (r) => (r.source === 'youtube' ? 'YouTube data'
+          : '<span class="est">niche-finder estimate</span>') },
+        { label: 'How it is calculated', wrap: true, render: (r) => esc(r.formula) },
+        { label: 'Sample size', wrap: true, render: (r) => esc(r.minSample || '—') },
       ], rows)}`;
   } catch { box.remove(); }
 }
