@@ -86,14 +86,14 @@ class OllamaProvider:
             with httpx.Client(timeout=5.0) as client:
                 resp = client.get(f"{self.base_url}/api/tags")
         except httpx.HTTPError as e:
-            return False, f"недоступен по {self.base_url} ({e})"
+            return False, f"unreachable at {self.base_url} ({e})"
         if resp.status_code != 200:
-            return False, f"HTTP {resp.status_code} на {self.base_url}/api/tags"
+            return False, f"HTTP {resp.status_code} from {self.base_url}/api/tags"
         names = {m.get("name") for m in resp.json().get("models", [])}
         if self.model and self.model not in names and not any(
                 n.split(":")[0] == self.model for n in names if n):
-            return False, f"сервер отвечает, но модели {self.model!r} нет -- `ollama pull {self.model}`"
-        return True, f"ОК -- {len(names)} моделей, {self.model or '(модель не задана)'}"
+            return False, f"the server responds, but the model {self.model!r} is missing -- `ollama pull {self.model}`"
+        return True, f"OK -- {len(names)} models, {self.model or '(no model set)'}"
 
 
 def _extract_json(text) -> dict | None:

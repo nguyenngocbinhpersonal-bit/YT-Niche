@@ -611,9 +611,9 @@ def _channel_rows_from_videos(rows):
     for cid, vids in by_channel.items():
         first = vids[0]
         views = [v["view_count"] or 0 for v in vids]
-        # Медианная база требует минимум 4 загрузок канала в базе. Если их нет,
-        # падаем на пожизненное среднее (формула NexLev) — число получается
-        # другого качества, поэтому помечаем, а не делаем вид, что оно то же.
+        # The median baseline needs at least 4 uploads of the channel in the database. If there are none,
+        # we fall back to the lifetime mean (the NexLev formula) — the number comes out
+        # of a different quality, so we mark it instead of pretending it is the same.
         has_median = any(v["outlierScore"] is not None for v in vids)
         mults = [v["outlierScoreAgeAdjusted"] or v["outlierScore"]
                  or v["outlierScoreNexlev"] or 0 for v in vids]
@@ -693,11 +693,11 @@ def recently_added_outlier_channels(period: str = "24h", period_by: str = "disco
     channels.sort(key=lambda c: c["multiplier"] or 0, reverse=True)
     hint = None
     if not channels:
-        hint = (f"Ни один из {before} каналов в окне не дотянул до множителя "
-                f"{min_multiplier} — понизьте min_multiplier." if before else
-                f"В окне {period} по '{period_by}' нет видео — сначала соберите корпус. "
-                f"Множитель считается по медиане предыдущих загрузок канала, поэтому "
-                f"каналу нужно минимум 4 видео в базе.")
+        hint = (f"None of the {before} channels in the window reached a multiplier of "
+                f"{min_multiplier} — lower min_multiplier." if before else
+                f"There are no videos in the {period} window by '{period_by}' — collect a corpus first. "
+                f"The multiplier is computed from the median of the channel's previous uploads, so "
+                f"a channel needs at least 4 videos in the database.")
     return {
         "period": period, "periodBy": period_by,
         "minMultiplier": min_multiplier, "minYppStatus": min_ypp_status, "hint": hint,
@@ -784,11 +784,11 @@ def high_future_competition(period: str = "30d", period_by: str = "published",
 
 
 def channel_history(channel_id: str, limit: int = 400) -> dict:
-    """Ряд снимков канала для графика «просмотры во времени».
+    """A series of channel snapshots for the "views over time" chart.
 
-    Это ровно та картинка, за которую берут деньги ViewStats и 1of10, и она
-    существует только потому, что воркер записывает цифры по расписанию:
-    YouTube API отдаёт лишь состояние «прямо сейчас».
+    This is exactly the picture ViewStats and 1of10 charge money for, and it
+    exists only because the worker records the numbers on a schedule:
+    the YouTube API returns only the state "right now".
     """
     conn = db.get_conn()
     rows = conn.execute(
@@ -804,5 +804,5 @@ def channel_history(channel_id: str, limit: int = 400) -> dict:
         "points": points,
         "count": len(points),
         "hint": None if len(points) > 1 else
-        "Нужно минимум два снимка. Их пишет воркер: docker compose up -d worker",
+        "At least two snapshots are needed. The worker writes them: docker compose up -d worker",
     }

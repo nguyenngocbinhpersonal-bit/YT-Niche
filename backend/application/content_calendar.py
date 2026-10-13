@@ -135,5 +135,5 @@ def remind_due(now: datetime = None) -> dict:
 def event_text(p: dict) -> str:
     """The words of a draft_due reminder (Telegram HTML is escaped by the caller)."""
     when = (p.get("plannedAt") or "")[:16].replace("T", " ")
-    return ("выпуск в ближайшие сутки" if p.get("stage") == "soon" else "пора выпускать") + f" · {when} UTC"
+    return ("release within the next day" if p.get("stage") == "soon" else "time to publish") + f" · {when} UTC"
 

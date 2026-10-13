@@ -52,7 +52,7 @@ def _hook(conn, video_id, skipped):
                 "text": " ".join(words[:HOOK_WORDS])}
     _skip(skipped, "hook", "no transcript stored -- transcripts are never fetched automatically")
     return {"available": False,
-            "action": "Вставьте транскрипт на экране «Транскрипты» — крючок добавится в бриф."}
+            "action": "Paste a transcript on the \"Transcripts\" screen — the hook will be added to the brief."}
 
 
 def _angle(niche, channel_id):

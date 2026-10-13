@@ -135,7 +135,7 @@ each, ~100 units a day at most). YouTube's API policies allow keeping data
 fetched with a key at most 30 days unrefreshed. Nothing is ever deleted: a row
 the API stopped returning is marked gone, and the history stays (see
 SECURITY.md for what that means under the policies). `GET /api/freshness`
-reports the counts (the "Данные" screen shows them).
+reports the counts (the "Data" screen shows them).
 
 Claude Desktop connection — in
 `~/Library/Application Support/Claude/claude_desktop_config.json`:
@@ -246,7 +246,7 @@ the Google OAuth return. Every personal table has a `user_id` (existing rows
 moved to user 1, "local").
 
 Per user (sub-stage 5.4): the watchlist, the swipe file, drafts, the
-transcript queue, alert read marks and "Мои каналы". Shared by everyone:
+transcript queue, alert read marks and "My channels". Shared by everyone:
 public YouTube data (channels, videos, niches, pasted transcripts) and alert
 events — a user sees the events of the channels on their own watchlist; the
 worker refreshes each tracked channel once, whoever tracks it. MCP over stdio
@@ -261,7 +261,7 @@ YouTube client checks the share before every call and counts it after; running
 out answers 429 to that user only. The dashboard footer shows what is left.
 
 Personal API tokens (sub-stages 5.7–5.8) sign in clients that cannot hold the
-cookie: the browser extension (its "Токен доступа" setting) and MCP over HTTP
+cookie: the browser extension (its "Access token" setting) and MCP over HTTP
 (`Authorization: Bearer nf_...`). Create one on the dashboard's MCP screen while
 signed in, or `make cli ARGS="create-token ann@example.com --name laptop"`. Only
 the SHA-256 is stored, the plaintext is shown once, a token cannot create or
@@ -272,7 +272,7 @@ MCP over stdio stays local and acts as user 1.
 
 Notifications (sub-stage 5.9): each user sets their own Telegram bot and chat
 or webhook and the mode — instant, digest, both or off — on the dashboard's
-"Данные" screen (`/api/settings/notifications`). Alerts and the digest cover
+"Data" screen (`/api/settings/notifications`). Alerts and the digest cover
 only that user's watchlist, and "already delivered" is kept per user. The bot
 token and webhook address are encrypted with `OWN_TOKENS_KEY` and never read
 back; a user's webhook must be https to a public address, checked when saved
@@ -598,19 +598,19 @@ One-time setup (each user brings their own OAuth client; nothing is shared):
    `.env` as `OWN_TOKENS_KEY=...`:
    `docker compose run --rm web python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.
    Keep it only in `.env`; losing or changing it means reconnecting.
-5. `docker compose up -d web worker`, open the dashboard → **Мои каналы** →
-   **Подключить канал**, sign in and allow read-only access.
+5. `docker compose up -d web worker`, open the dashboard → **My channels** →
+   **Connect channel**, sign in and allow read-only access.
 
 **Running it as a service (plan 25, `OWN_OAUTH_MODE=web`).** Customers do not
 create OAuth clients: the service has one, of type **Web application**, and a
-customer only clicks "Подключить канал" and allows read-only access in
+customer only clicks "Connect channel" and allows read-only access in
 Google's consent window. Set `OWN_OAUTH_MODE=web` and
 `OWN_OAUTH_REDIRECT_URI=https://<your domain>/api/own/oauth/callback`
 (registered as an authorized redirect URI of the client; the status refuses
 anything but https or a localhost dev address). In multi-user mode only an
 admin sees which settings are missing; customers see that connecting is not
 available yet. Revenue (`yt-analytics-monetary.readonly`) is asked for only
-when the customer ticks "показывать доход" or later presses "Добавить доход"
+when the customer ticks "show revenue" or later presses "Add revenue"
 -- the base consent is `youtube.readonly` + `yt-analytics.readonly`. The
 service serves public `/privacy` and `/terms` pages (Limited Use disclosure,
 YouTube Terms of Service, Google Privacy Policy, revoking access, deletion)
@@ -635,7 +635,7 @@ The refresh token is stored Fernet-encrypted (`own_channels.token_enc`) and is
 never returned by the API, logged or put in an error. The worker syncs
 connected channels once a day (`WORKER_OWN_SYNC`), per video, for the last 28
 days and lifetime, ending 3 days ago because Analytics data arrives late; this
-uses your OAuth project's Analytics quota, not the Data API key's. **Отключить**
+uses your OAuth project's Analytics quota, not the Data API key's. **Disconnect**
 revokes the token at Google (best effort) and deletes everything stored for the
 channel; access can also be removed at https://myaccount.google.com/permissions.
 

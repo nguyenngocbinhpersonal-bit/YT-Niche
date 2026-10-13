@@ -36,9 +36,9 @@ from the data already collected, with zero quota and no LLM. 100 MCP tools,
   of them; `content_calendar` lists a range with each draft's state (planned,
   overdue, published) and the drafts with no date. The worker raises a
   personal `draft_due` event the day before and when the time comes, sent to
-  Telegram/webhook and shown in a new "Календарь" section of the digest, until
+  Telegram/webhook and shown in a new "Calendar" section of the digest, until
   the draft is linked to its video. MCP (100 tools), `POST /api/drafts/{id}/plan`,
-  `GET /api/calendar` and the "Календарь" screen (week or month, drag a draft
+  `GET /api/calendar` and the "Calendar" screen (week or month, drag a draft
   onto a day). Zero quota.
 - **Collaboration partners** (plan 31). `collab_candidates` takes the 200
   most similar channels (embedding centroids) and keeps those at cosine 0.5+,
@@ -46,7 +46,7 @@ from the data already collected, with zero quota and no LLM. 100 MCP tools,
   30 days and no high template risk; each comes with similarity, size ratio,
   days since upload and 30-day subscriber growth, and `excluded` says how many
   were dropped and why. MCP (98 tools), `GET /api/channels/{id}/collabs`, a
-  card on the channel screen and on "Мои каналы" with "В трекер". Only
+  card on the channel screen and on "My channels" with "Track". Only
   collected channels; YouTube gives no contacts. Zero quota.
 - **Net profit calculator** (plan 30). Personal cost profiles (a price per
   video, per minute of video and a monthly overhead, in USD; new table
@@ -58,7 +58,7 @@ from the data already collected, with zero quota and no LLM. 100 MCP tools,
   channel below the full YPP tier is warned that ad revenue may still be
   zero. MCP `list_cost_profiles`, `save_cost_profile`, `delete_cost_profile`,
   `profit_estimate` (97 tools), `/api/cost-profiles`, `GET /api/profit`, a
-  card on the channel and niche screens, a profile editor on "Данные", a line
+  card on the channel and niche screens, a profile editor on "Data", a line
   in the extension's channel panel and a `profit` entry in `explain_scores`.
   AdSense only. Zero quota.
 - **What outliers of a niche have in common — by the numbers, no LLM** (plan
@@ -80,7 +80,7 @@ from the data already collected, with zero quota and no LLM. 100 MCP tools,
   60% of the weight known) gets no score instead of a low one. Cached for an
   hour. `compare_niches` shows 2–3 niches side by side with the overview
   numbers. MCP (92 tools), `GET /api/niches/ranking`,
-  `GET /api/niches/compare`, the "Где заходить" screen (sortable by any
+  `GET /api/niches/compare`, the "Where to enter" screen (sortable by any
   column) and a `nicheRank` entry in `explain_scores`. Zero quota, no LLM.
 - **Language gaps — "formats that took off in one language, is it made in
   another?"** (plan 26). For a pair of languages, the outliers of the source
@@ -95,11 +95,11 @@ from the data already collected, with zero quota and no LLM. 100 MCP tools,
   ("open" can mean "not collected"). `language_gaps` (MCP, 90 tools),
   `GET /api/language-gaps`, `GET /api/language-gaps/languages`,
   `GET /api/videos/{id}/language-gap` (one video, any video; target defaults
-  to the biggest other language), the "Другой язык" dashboard screen, an "На
-  другом языке?" button in the extension's video panel and a `languageGap`
+  to the biggest other language), the "Another language" dashboard screen, an "In
+  another language?" button in the extension's video panel and a `languageGap`
   entry in `explain_scores`. Zero quota, no LLM; works without pgvector.
   Reads only: `similar_videos` and `search_outliers` are unchanged.
-- **Topic alerts can search all of YouTube** — a topic with "На YouTube"
+- **Topic alerts can search all of YouTube** — a topic with "On YouTube"
   ticked (`search_youtube` in `watch_topic`, `POST /api/topics/{id}/search`)
   is searched once a day for videos of the last 24 hours, newest first; new
   ones are stored with embeddings and no niche, and the hourly match raises
@@ -110,9 +110,9 @@ from the data already collected, with zero quota and no LLM. 100 MCP tools,
 - **Customers can connect their own channels to a hosted installation**
   (plan 25) — `OWN_OAUTH_MODE=web` uses one OAuth client of the service, of
   type Web application, on an https redirect the status checks; customers
-  only press "Подключить канал", and in multi-user mode only an admin sees
+  only press "Connect channel", and in multi-user mode only an admin sees
   which settings are missing. Revenue access is asked for separately — a
-  "показывать доход" box when connecting and "Добавить доход" later — so the
+  "show revenue" box when connecting and "Add revenue" later — so the
   base consent is read-only YouTube + Analytics (`OA.BASE_SCOPES`). Public
   `/privacy` and `/terms` pages carry what Google's app verification and
   YouTube's API terms ask for (Limited Use, YouTube Terms of Service, Google
@@ -139,10 +139,10 @@ Found in a code review of v0.2.0..v0.3.0 and the plan-25 work:
   get alerts that way; they were only in the dashboard feed.
 - **No "milestone" alert for an old crossing** — two subscriber snapshots
   more than 14 days apart no longer raise one.
-- **"Так же начинают заголовки" counts titles with punctuation or a leading
+- **"…start titles the same way" counts titles with punctuation or a leading
   emoji** ("How To: Make…", "🔥 how to make…").
 - **`/api/health` is light again** — the freshness counts moved to their own
-  `GET /api/freshness`, which only the "Данные" screen asks for; niche policy
+  `GET /api/freshness`, which only the "Data" screen asks for; niche policy
   signals reuse one database connection instead of one per channel; video
   trajectories and format repeatability load only the videos they score
   (`load_window(video_ids=...)`, the channel baseline unchanged) -- on a
@@ -157,7 +157,7 @@ the monetization policies, your channel by format -- with every number
 saying whether it is YouTube data or an estimate. 89 MCP tools, 113 HTTP
 routes. Highlights:
 
-- **Decide what to make:** topic alerts, "Формат повторяем?", video
+- **Decide what to make:** topic alerts, "Is the format repeated?", video
   trajectories and a comparison of up to five videos.
 - **Stay on the right side of YouTube:** signals for the three
   inauthentic-content categories, the 2027 YPP thresholds with subscriber
@@ -176,8 +176,8 @@ routes. Highlights:
 - **Your channel by format** (plan 24) — the daily sync of a connected
   channel now also reads a year of YouTube Analytics by day and
   `creatorContentType` (`own_channel_daily`, personal). `own_channel_formats`
-  (MCP, 89 tools), `GET /api/own/channels/{id}/formats` and a "Форматы" card
-  on "Мои каналы" show Shorts, long videos and live apart: share of views and
+  (MCP, 89 tools), `GET /api/own/channels/{id}/formats` and a "Formats" card
+  on "My channels" show Shorts, long videos and live apart: share of views and
   subscribers per 1,000 views over 90 days, whether weekly Shorts and
   long-form views move together (a correlation, not a cause), and long + live
   watch hours in 365 days toward the YPP bar -- 4,000 now, 8,000 from
@@ -220,11 +220,11 @@ routes. Highlights:
   make (median views x maturity curve, an estimate) and with title/thumbnail
   swaps marked. `video_trajectory` (MCP, 85 tools) and
   `GET /api/videos/trajectory` take up to five videos; the brief shows the
-  source video's curve; a "сравнить" link on every video card fills a
+  source video's curve; a "compare" link on every video card fills a
   comparison of up to five on `#/compare/<id,id>`; the extension's video
   panel shows a small chart instead of a snapshot count. Zero quota.
 
-- **"Формат повторяем?"** (plan 21) — before copying an outlier, see whether
+- **"Is the format repeated?"** (plan 21) — before copying an outlier, see whether
   its format worked for other channels too. `format_repeatability` (MCP),
   `GET /api/videos/{id}/repeatability`, a card in the brief and a button in
   the extension's video panel take the video's embedding neighbours on other
@@ -232,11 +232,11 @@ routes. Highlights:
   once by its best video and answer `repeatable` (3+ channels got >= 2x),
   `mixed`, `one_off` or `unknown` (too few similar videos collected), with
   examples and how many other channels start their titles the same way. The
-  "Outlier → своё видео" scenario asks for it. Zero quota (84 MCP tools).
+  "Outlier → your own video" scenario asks for it. Zero quota (84 MCP tools).
 
-- **Topic alerts** (plan 19) — name a topic in plain words on the "Алерты"
+- **Topic alerts** (plan 19) — name a topic in plain words on the "Alerts"
   screen, with `watch_topic` (MCP), `POST /api/topics` or the extension's
-  "Следить за темой" button. Every hour the worker compares the topics with
+  "Follow topic" button. Every hour the worker compares the topics with
   videos first seen in the last 48 hours from any source (RSS of tracked
   channels, niche collections, trending) and raises a `topic_match` alert for
   each one whose title+description embedding is close enough (cosine >= 0.6
@@ -294,8 +294,8 @@ routes. Highlights:
   `channels.list`, oldest first, capped by `REFRESH_STALE_MAX_VIDEOS` /
   `REFRESH_STALE_MAX_CHANNELS` (2,500 each, ~100 units a day at most);
   `WORKER_FRESHNESS=0` switches it off. Nothing is deleted: a row the API no
-  longer returns is marked gone. `db_stats` gains `freshness`, the "Данные"
-  screen a "Хранение данных" card, and SECURITY.md / PRIVACY.md say what is
+  longer returns is marked gone. `db_stats` gains `freshness`, the "Data"
+  screen a "Data retention" card, and SECURITY.md / PRIVACY.md say what is
   kept and what YouTube's derived-metrics approval would change.
 - **Velocity across the 2026-08-24 view-count change** (plan 18) — YouTube
   now counts a public view from the first frame, so `vph24h` and
@@ -349,7 +349,7 @@ small team. Highlights:
   release with this section as notes and the extension zip attached.
   CONTRIBUTING.md describes the steps.
 
-- **"Алерты" screen and a "gone" mark on the channel screen** (plan 04
+- **"Alerts" screen and a "gone" mark on the channel screen** (plan 04
   follow-up) — the dashboard now lists the alert events of your watchlist
   (`/api/events`) with a filter by type, "only new" and "mark all read", so a
   channel or video that disappeared is visible without Telegram. A channel the
@@ -359,7 +359,7 @@ small team. Highlights:
 
 - **YPP-threshold filter in outlier search** (plan 12 follow-up) —
   `search_outliers` and `recently_added_outlier_channels` (MCP, HTTP, the
-  "Найти нишу" and "Outlier-каналы" screens) take `min_ypp_status`
+  "Find a niche" and "Outlier channels" screens) take `min_ypp_status`
   (`subscribers-met` or `shorts-path-met`) to keep only channels past the
   YouTube Partner Program thresholds they visibly meet. Off by default; still
   not a monetization status, and a hidden subscriber count never passes.
@@ -389,7 +389,7 @@ small team. Highlights:
 
 - **Per-user notifications** (plan 15, sub-stage 5.9) — each user sets their
   own Telegram bot and chat or webhook and mode (instant / digest / both / off)
-  on the "Данные" screen or `/api/settings/notifications`, with a test button.
+  on the "Data" screen or `/api/settings/notifications`, with a test button.
   Alerts and the digest cover only that user's watchlist; `alert_deliveries`
   is keyed by `(user_id, alert_key)`, so every user gets each alert once. The
   bot token and webhook address are encrypted with `OWN_TOKENS_KEY` and never
@@ -401,9 +401,9 @@ small team. Highlights:
 - **Personal API tokens for the extension and MCP over HTTP** (plan 15,
   sub-stages 5.7–5.8) — with `NF_MULTI_USER=1`, `Authorization: Bearer nf_...`
   signs in like the session cookie. Tokens are created on the dashboard's MCP
-  screen ("Личные токены") or with `cli.py create-token`, shown once, stored as
+  screen ("Personal tokens") or with `cli.py create-token`, shown once, stored as
   SHA-256, listed with last use, and revocable; a token cannot manage tokens.
-  The extension gets an "Токен доступа" setting (kept in
+  The extension gets an "Access token" setting (kept in
   `chrome.storage.local`, masked in the popup). The HTTP MCP services require a
   token (the SDK's `token_verifier`), tools act as the token's user and YouTube
   calls count against that user's budget; stdio stays local as user 1.
@@ -439,7 +439,7 @@ small team. Highlights:
   dashboard. New tables `users` (user 1 = "local") and `sessions`; every
   personal table (`tracked_channels`, `saved_items`, `drafts`,
   `alert_deliveries`, `transcript_requests`, `llm_usage`) gets `user_id`, with
-  existing rows moved to user 1; `SCHEMA_VERSION` 4. "Мои каналы" already reads
+  existing rows moved to user 1; `SCHEMA_VERSION` 4. "My channels" already reads
   as the signed-in user. Separating the rest per user is sub-stage 5.4 — until
   then do not give accounts to other people. One YouTube API key per
   installation (YouTube API policies III.D.1.c), per-user quota budgets later.
@@ -449,7 +449,7 @@ small team. Highlights:
   and a single-use 10-minute state) and get their real YouTube Analytics
   numbers: per video views, watch time, retention, subscribers gained and, on a
   monetized channel, revenue, CPM and RPM, for the last 28 days and lifetime.
-  A "Мои каналы" screen (setup steps, connect, sync, disconnect), MCP
+  A "My channels" screen (setup steps, connect, sync, disconnect), MCP
   `own_channels`, `own_vs_niche`, `rpm_calibration`, `sync_own_channels` (80
   tools), `/api/own/*` routes, a daily worker step (`WORKER_OWN_SYNC`) and real
   numbers in `draft_outcomes` (`ownMetrics`). `rpm_calibration` sets your real
@@ -466,8 +466,8 @@ small team. Highlights:
   `search_thumbnails`, `thumbnail_styles`, `embed_thumbnails` (76 tools),
   `/api/videos/{id}/similar-thumbnails`, `/api/thumbnails/search`,
   `/api/niches/{slug}/thumbnail-styles`, `POST /api/thumbnails/embed`, a
-  "Стили превью" block with text search on the niche screen and "Похожие по
-  картинке" in the brief. Thumbnails become local CLIP vectors (fastembed, ONNX
+  "Thumbnail styles" block with text search on the niche screen and "Similar by
+  picture" in the brief. Thumbnails become local CLIP vectors (fastembed, ONNX
   on CPU, `Qdrant/clip-ViT-B-32-vision`; text search with
   `Qdrant/clip-ViT-B-32-text`): visually similar thumbnails, thumbnails matching
   a description, and a niche's k-means style groups with their median outlier
@@ -500,14 +500,14 @@ small team. Highlights:
   tools in order, its quota cost and the shape of the answer; the ones that
   collect call `db_stats` first and stop when the quota is short, and reading
   comments or saving a draft waits for the user's consent. Arguments carry
-  descriptions for the client menu. A "Сценарии" section on the dashboard's
+  descriptions for the client menu. A "Scenarios" section on the dashboard's
   MCP screen. `tests/test_mcp_prompts.py` fails if a scenario names a tool that
   does not exist. The tool count stays 72.
 
 - **Niche trend** (plan 08) — `saturation_v2` in `niche_overview` /
   `niche_overview_from_channel` (MCP and `/api/niches/{slug}`), a new
-  `GET /api/niches/saturation` for every niche at once, a "Тренд ниши" block
-  on the niche screen, a "Тренд" column in the niche list and on the cluster
+  `GET /api/niches/saturation` for every niche at once, a "Niche trend" block
+  on the niche screen, a "Trend" column in the niche list and on the cluster
   map. The last 30 days against the 90 before them, always in its own 120-day
   window whatever the requested period: supply (videos), demand (median views
   projected to day 30, so old and new videos compare; Shorts and long-form
@@ -521,7 +521,7 @@ small team. Highlights:
   stays. No schema change, zero quota.
 
 - **Content gaps** (plan 03) — MCP `content_gaps`, `GET` / `POST
-  /api/niches/{slug}/content-gaps` and a "Пробелы в контенте" card on the niche
+  /api/niches/{slug}/content-gaps` and a "Content gaps" card on the niche
   screen. Questions and requests from the comments of a niche's most-viewed
   videos that no collected video or pasted transcript answers yet: similar
   questions are grouped (embeddings, or normalised text without them), coverage
@@ -535,12 +535,12 @@ small team. Highlights:
   and stops at an exhausted quota, listing what it skipped. The no-LLM cache
   (`video_insights`, task `comment_questions`) keeps question text and like
   count only, never the author; `PRIVACY.md` updated. `build_brief` takes an
-  optional `gap_topic`, and the card's "В бриф" opens `#/brief/<video>?gap=…`.
+  optional `gap_topic`, and the card's "To brief" opens `#/brief/<video>?gap=…`.
   No schema change.
 
 - **Hook score** (plan 10) — MCP `hook_report` / `niche_hook_benchmark` /
   `score_hook_text`, `/api/videos/{id}/hook`, `/api/niches/{slug}/hook-benchmark`,
-  `/api/hooks/score`, a "Крючок" button on the Transcripts screen and an
+  `/api/hooks/score`, a "Hook" button on the Transcripts screen and an
   intro checker on the title screen. Rates the text of the first ~30 seconds of
   a pasted transcript (or your own draft) 0-100 by rules, English and Russian:
   question to the viewer, concrete number, promised payoff, intrigue, "you",
@@ -553,7 +553,7 @@ small team. Highlights:
   quota; `PRIVACY.md` updated.
 
 - **Sponsor map** (plan 09) — MCP `sponsor_map` / `channel_sponsors`,
-  `/api/niches/{slug}/sponsors`, `/api/channels/{id}/sponsors` and "Спонсоры"
+  `/api/niches/{slug}/sponsors`, `/api/channels/{id}/sponsors` and "Sponsors"
   cards on the niche and channel screens. Finds sponsor mentions, promo codes
   and affiliate links in video descriptions (English and Russian, including
   `erid`-marked ads), normalises brands (`nordvpn.com/xyz` and `NordVPN` become
@@ -565,8 +565,8 @@ small team. Highlights:
   A lower bound: sponsorship not named in a description is invisible.
 
 - **Outlier to brief** (plan 02) — MCP `build_brief`, `POST /api/briefs`, a
-  `#/brief/<videoId>` dashboard screen, a "бриф" link on every video card and
-  a "Бриф" button in the extension. One outlier becomes a working brief for
+  `#/brief/<videoId>` dashboard screen, a "brief" link on every video card and
+  a "Brief" button in the extension. One outlier becomes a working brief for
   your own video: its numbers and hook (first ~75 words of a pasted
   transcript), niche title patterns and best time, whether the topic is already
   covered (the source itself excluded), title candidates and why it worked
@@ -601,7 +601,7 @@ small team. Highlights:
   delivered, so switching back to `instant` does not replay them. Default
   stays `instant` — nothing changes unless you opt in. Also: MCP
   `daily_digest`, `GET /api/digest`, `POST /api/digest/send` and
-  `cli.py digest-send` (send now), and a "За сутки" block on the Overview.
+  `cli.py digest-send` (send now), and a "Last 24 hours" block on the Overview.
 
 - **RPM as a range** (plan 06) — every RPM estimate now also comes as
   `low / mid / high` (`estimatedRpmRange` on videos and categories,
@@ -612,7 +612,7 @@ small team. Highlights:
   unchanged and compare the middle. Dashboard cards, the categories table and
   the channel revenue tile show the range.
 
-- **Repackaging — "Перепаковки"** (plan 05) — a dashboard screen, MCP tool
+- **Repackaging — "Repackaging"** (plan 05) — a dashboard screen, MCP tool
   `packaging_changes` and `/api/packaging` for title and thumbnail swaps after
   publishing: old vs new title or the archived before/after thumbnails side by
   side, with views per hour 48h before vs after (an observed effect, not a
@@ -1031,7 +1031,7 @@ small team. Highlights:
   architecture diagram and a documentation table. The details moved to the
   part READMEs instead of being repeated.
 - **Docs brought in line with the code** — `frontend/README.md` describes the
-  "Мои каналы" screen and `hook_view.js`; `extension/README.md` explains
+  "My channels" screen and `hook_view.js`; `extension/README.md` explains
   installing from a release zip and no longer says `search.list` costs 100
   units; `backend/README.md` copies `.env.example` from the project root in
   the no-Docker setup and states Python 3.10+ (Docker and CI use 3.12);

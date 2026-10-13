@@ -35,7 +35,7 @@ def eval_channels(fixture_path: str) -> None:
     with open(fixture_path, encoding="utf-8") as f:
         expected = json.load(f)
     if not expected:
-        print("channels: фикстура пуста")
+        print("channels: the fixture is empty")
         return
 
     conn = db.get_conn()
@@ -45,7 +45,7 @@ def eval_channels(fixture_path: str) -> None:
     conn.close()
     actual = {r["channel_id"]: (r["llm_labels"] or {}) for r in rows}
 
-    print(f"\n=== Каналы: {len(expected)} в фикстуре ===")
+    print(f"\n=== Channels: {len(expected)} in the fixture ===")
     for field in CHANNEL_FIELDS:
         total = matched = unlabeled = 0
         for channel_id, exp in expected.items():
@@ -59,7 +59,7 @@ def eval_channels(fixture_path: str) -> None:
             if got[field] == exp[field]:
                 matched += 1
         pct = round(100 * matched / total, 1) if total else 0.0
-        suffix = f" ({unlabeled} ещё не размечены)" if unlabeled else ""
+        suffix = f" ({unlabeled} not labelled yet)" if unlabeled else ""
         print(f"  {field}: {matched}/{total} = {pct}%{suffix}")
 
 
@@ -89,13 +89,13 @@ def eval_videos() -> None:
         elif llm_tags == manual_tags:
             stats["matched"] += 1
 
-    print(f"\n=== Видео: {len(manual)} (video_id, tag_group) с ручной разметкой ===")
+    print(f"\n=== Videos: {len(manual)} (video_id, tag_group) with manual labels ===")
     if not by_group:
-        print("  нет video_tags с source in (manual, claude-mcp) -- нечего сравнивать")
+        print("  no video_tags with source in (manual, claude-mcp) -- nothing to compare")
         return
     for tag_group, s in sorted(by_group.items()):
         pct = round(100 * s["matched"] / s["total"], 1) if s["total"] else 0.0
-        suffix = f" ({s['unlabeled']} ещё не тегированы LLM)" if s["unlabeled"] else ""
+        suffix = f" ({s['unlabeled']} not tagged by the LLM yet)" if s["unlabeled"] else ""
         print(f"  {tag_group}: {s['matched']}/{s['total']} = {pct}%{suffix}")
 
 
@@ -103,9 +103,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--channels", metavar="FIXTURE.json",
-                    help="путь к JSON-фикстуре ожидаемой разметки каналов")
+                    help="path to the JSON fixture of expected channel labels")
     ap.add_argument("--videos-only", action="store_true",
-                    help="пропустить сравнение каналов, даже если --channels передан")
+                    help="skip the channel comparison even if --channels is passed")
     args = ap.parse_args()
 
     if args.channels and not args.videos_only:

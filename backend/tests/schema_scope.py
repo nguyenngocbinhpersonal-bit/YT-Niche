@@ -1,26 +1,26 @@
-"""Одноразовая Postgres-схема на один процесс тестов -- и уборка за собой.
+"""A throwaway Postgres schema per test process -- and cleaning up after itself.
 
-Импортируется тестовыми модулями ДО первого обращения к базе, только ради
-побочного эффекта: выставить NICHE_DB_SCHEMA и зарегистрировать удаление схемы
-на выходе из процесса.
+Imported by test modules BEFORE the first database access, only for the
+side effect: to set NICHE_DB_SCHEMA and register the schema's removal
+on process exit.
 
-Владелец схемы -- процесс, а не модуль: под pytest несколько тестовых файлов
-живут в одном процессе, и второй импорт видит NICHE_DB_SCHEMA уже выставленным.
-Поэтому решение "наша ли схема" принимается один раз здесь (модуль
-импортируется однократно), а DROP делается в atexit -- после того как
-отработали все модули, а не в teardown первого из них.
+The schema's owner is the process, not the module: under pytest several test files
+live in one process, and the second import sees NICHE_DB_SCHEMA already set.
+So the decision "is the schema ours" is made once here (the module
+is imported once), and the DROP is done in atexit -- after
+all modules have run, not in the teardown of the first of them.
 
-Сами тесты под pytest работают не в схеме процесса, а каждый файл в своей:
-tests/conftest.py оборачивает модуль, который импортировал schema_scope, в
-module_schema() -- свежая пустая схема на время тестов этого файла, после них
-удаляется. Так `pytest tests/` одним процессом видит базу так же, как прогон
-по одному файлу на процесс: чужие строки из соседних файлов не мешают.
+Under pytest the tests themselves do not run in the process schema but each file in its own:
+tests/conftest.py wraps the module that imported schema_scope in
+module_schema() -- a fresh empty schema for the duration of this file's tests, dropped
+after them. This way `pytest tests/` in one process sees the database the same way as a run
+with one file per process: foreign rows from neighbouring files do not interfere.
 
-Две схемы никогда не удаляются:
-  * заданная снаружи через NICHE_DB_SCHEMA -- там могут быть реальные данные
-    (тогда и module_schema() ничего не подменяет: все файлы работают в ней);
-  * своя, если выставлен NICHE_KEEP_TEST_SCHEMA=1 -- чтобы разобрать падение
-    (имя схемы печатается при выходе).
+Two schemas are never dropped:
+  * one set from outside via NICHE_DB_SCHEMA -- it may hold real data
+    (then module_schema() substitutes nothing either: all files work in it);
+  * our own, if NICHE_KEEP_TEST_SCHEMA=1 is set -- to investigate a failure
+    (the schema name is printed on exit).
 """
 import atexit
 import contextlib
@@ -35,9 +35,9 @@ SCHEMA = os.environ["NICHE_DB_SCHEMA"]
 
 _module_seq = itertools.count(1)
 
-# TestClient шлёт Host: testserver, а HTTP API отвечает только локальным именам
-# (interfaces/http/api.py, local_only_guard). Разрешаем его явно через ту же
-# настройку, что и у пользователя, -- до импорта api, который читает её один раз.
+# TestClient sends Host: testserver, while the HTTP API answers only local names
+# (interfaces/http/api.py, local_only_guard). We allow it explicitly through the same
+# setting a user has -- before importing api, which reads it once.
 _extra_hosts = os.environ.get("NF_ALLOWED_HOSTS", "")
 if "testserver" not in _extra_hosts.split(","):
     os.environ["NF_ALLOWED_HOSTS"] = ",".join(filter(None, [_extra_hosts, "testserver"]))
@@ -45,7 +45,7 @@ if "testserver" not in _extra_hosts.split(","):
 
 def _drop(schema):
     if os.environ.get("NICHE_KEEP_TEST_SCHEMA"):
-        print(f"тестовая схема оставлена: NICHE_DB_SCHEMA={schema}")
+        print(f"test schema kept: NICHE_DB_SCHEMA={schema}")
         return
     import infrastructure.postgres as db
     conn = db.get_conn()
@@ -57,21 +57,21 @@ def _drop(schema):
 
 
 def drop_own_schema():
-    """Снести схему, созданную этим процессом. Идемпотентна."""
+    """Drop the schema created by this process. Idempotent."""
     if not OWN_SCHEMA:
         return
     _drop(SCHEMA)
 
 
 def _vector_extension_to_public():
-    """Расширение vector -- в public, а не в схеме какого-то файла.
+    """The vector extension lives in public, not in some file's schema.
 
-    init_db() создаёт его в текущей схеме: первый init_db случается ещё при
-    импорте api.py, в схеме процесса или файла. Оттуда тип vector не виден из
-    search_path остальных файлов ("<своя схема>, public"), а DROP SCHEMA ...
-    CASCADE удаляет расширение вместе со схемой -- pgvector-тесты тогда молча
-    уходят в skip. pgvector перемещаемый, поэтому уже созданное просто
-    переносим. Нет расширения в образе -- ничего не делаем, skip честный."""
+    init_db() creates it in the current schema: the first init_db happens already on
+    importing api.py, in the process or file schema. From there the vector type is not visible from the
+    search_path of the other files ("<own schema>, public"), and DROP SCHEMA ...
+    CASCADE removes the extension together with the schema -- pgvector tests then silently
+    go to skip. pgvector is relocatable, so what is already created is simply
+    moved. No extension in the image -- we do nothing, the skip is honest."""
     import infrastructure.postgres as db
     conn = db.get_conn()
     try:
@@ -92,13 +92,13 @@ def _vector_extension_to_public():
 
 @contextlib.contextmanager
 def module_schema():
-    """Своя свежая схема на время одного тестового модуля, потом -- DROP.
+    """A fresh schema of its own for the duration of one test module, then DROP.
 
-    Схема сразу готова (init_db), как раньше в отдельном процессе, где её
-    готовил импорт api.py: иначе файл, который сам init_db не зовёт, через
-    search_path молча читает public -- локально это реальные данные.
+    The schema is ready at once (init_db), as before in a separate process where
+    importing api.py prepared it: otherwise a file that does not call init_db itself would read
+    public silently via search_path -- locally that is real data.
 
-    Со схемой, заданной снаружи, ничего не делает: её не подменяем."""
+    With a schema set from outside it does nothing: we do not replace it."""
     if not OWN_SCHEMA:
         yield SCHEMA
         return

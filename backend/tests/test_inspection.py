@@ -1,12 +1,12 @@
-"""Тесты разбора одной страницы (application/inspection.py).
+"""Tests for inspecting a single page (application/inspection.py).
 
-В отличие от test_smoke.py здесь не нужны ни Postgres, ни ключ YouTube:
-инфраструктура подменяется двойниками — sqlite вместо Postgres и заглушка
-вместо HTTP-клиента. Так проверяется ровно то, что легко сломать при правке:
-сами SQL-запросы, выбор базы сравнения, экономия квоты и поведение, когда в
-базе пусто. Интеграция с настоящей базой остаётся за test_smoke.py.
+Unlike test_smoke.py, neither Postgres nor a YouTube key is needed here:
+the infrastructure is replaced by doubles — sqlite instead of Postgres and a stub
+instead of the HTTP client. That checks exactly what is easy to break when editing:
+the SQL queries themselves, the choice of comparison baseline, quota saving and the behaviour when the
+database is empty. Integration with a real database is left to test_smoke.py.
 
-    python3 tests/test_inspection.py        # или: pytest tests/test_inspection.py
+    python3 tests/test_inspection.py        # or: pytest tests/test_inspection.py
 """
 import json
 import os
@@ -51,8 +51,8 @@ API_VIDEOS, API_CHANNELS = {}, {}
 
 
 class _Conn:
-    """Обёртка в стиле infrastructure.postgres. close() ничего не делает —
-    иначе in-memory база исчезала бы после первого же вызова."""
+    """A wrapper in the style of infrastructure.postgres. close() does nothing —
+    otherwise the in-memory database would vanish after the first call."""
 
     def execute(self, sql, params=()):
         return RAW.execute(sql, params)
@@ -76,7 +76,7 @@ def reset():
 
 reset()
 
-# ---------------------------------------- двойники инфраструктуры
+# ---------------------------------------- infrastructure doubles
 
 infra_pkg = types.ModuleType("infrastructure")
 fake_db = types.ModuleType("infrastructure.postgres")
@@ -156,9 +156,9 @@ fake_collector.store_videos = _store_videos
 fake_collector.store_channels = _store_channels
 fake_collector.resolve_channel = _resolve_channel
 
-# Двойники живут в отдельном «мире модулей» (tests/module_doubles.py): в
-# sys.modules они видны только пока идут тесты этого файла, поэтому не
-# протекают в Postgres-тесты, которые pytest гоняет в том же процессе.
+# The doubles live in a separate "module world" (tests/module_doubles.py): in
+# sys.modules they are visible only while this file's tests run, so they do not
+# leak into the Postgres tests that pytest runs in the same process.
 DOUBLES = ModuleDoubles({
     "infrastructure": infra_pkg,
     "infrastructure.postgres": fake_db,
@@ -168,7 +168,7 @@ DOUBLES = ModuleDoubles({
 })
 I, = DOUBLES.load("application.inspection")
 
-# ----------------------------------------------------------- наполнение
+# ----------------------------------------------------------- seeding
 
 CH = "UC0000000000000000000a"
 
@@ -182,30 +182,30 @@ def seed_channel(subs=10_000, videos=50, views=5_000_000, handle="@tinylab", fre
 
 
 def seed_videos(n=12, base_views=100_000, days_back=60, is_short=0):
-    """n предыдущих роликов с одинаковыми просмотрами — медиана предсказуема."""
+    """n previous videos with identical views — the median is predictable."""
     for i in range(n):
         RAW.execute(
             "INSERT OR REPLACE INTO videos (video_id, channel_id, title, published_at,"
             " duration_seconds, view_count, like_count, comment_count, tags, updated_at, is_short)"
             " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-            (f"old{i:08d}", CH, f"Старый ролик {i}", iso(NOW - timedelta(days=days_back - i)),
+            (f"old{i:08d}", CH, f"Old video {i}", iso(NOW - timedelta(days=days_back - i)),
              600, base_views, 1000, 100, "[]", iso(NOW), is_short))
 
 
-def seed_target(views=400_000, days=5, fresh_hours=0.0, tags=("ai", "нейросети")):
+def seed_target(views=400_000, days=5, fresh_hours=0.0, tags=("ai", "neural-nets")):
     RAW.execute(
         "INSERT OR REPLACE INTO videos (video_id, channel_id, title, published_at,"
         " duration_seconds, view_count, like_count, comment_count, tags, updated_at, is_short)"
         " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-        ("vid00000001", CH, "Целевой ролик", iso(NOW - timedelta(days=days)), 900, views,
+        ("vid00000001", CH, "Target video", iso(NOW - timedelta(days=days)), 900, views,
          20_000, 900, json.dumps(list(tags), ensure_ascii=False),
          iso(NOW - timedelta(hours=fresh_hours)), 0))
 
 
 def api_video(vid="vid00000001", views=400_000, channel=CH, days=5, synthetic=None):
-    item = {"id": vid, "snippet": {"channelId": channel, "title": "Из API",
+    item = {"id": vid, "snippet": {"channelId": channel, "title": "From API",
                                    "publishedAt": iso(NOW - timedelta(days=days)),
-                                   "tags": ["из", "api"], "categoryId": "28"},
+                                   "tags": ["from", "api"], "categoryId": "28"},
             "statistics": {"viewCount": str(views), "likeCount": "100", "commentCount": "10"},
             "contentDetails": {"seconds": 700}}
     if synthetic is not None:
@@ -220,49 +220,49 @@ def api_channel(cid=CH, subs=10_000, videos=50, views=5_000_000, handle="@tinyla
                            "viewCount": str(views)}}
 
 
-# ---------------------------------------------------------------- тесты
+# ---------------------------------------------------------------- tests
 
 def test_video_from_db_costs_nothing():
-    """Свежая запись в базе — ни одного обращения к API."""
+    """A fresh record in the database — no API calls at all."""
     reset(); seed_channel(); seed_videos(); seed_target()
-    d = I.inspect_video("ключ", "vid00000001")
+    d = I.inspect_video("key", "vid00000001")
     assert d["found"] and d["source"] == "db", d
     assert d["quotaUnits"] == 0 and CALLS["videos"] == 0
-    # медиана предыдущих 10 роликов = 100 000, у целевого 400 000
+    # the median of the previous 10 videos = 100,000, the target has 400,000
     assert d["metrics"]["baselineMedianViews"] == 100_000
     assert abs(d["metrics"]["outlierScore"] - 4.0) < 0.01
     assert d["metrics"]["outlierBand"] == "strong outlier"
     assert d["metrics"]["viewsPerSubscriber"] == 40.0
-    assert d["video"]["tags"] == ["ai", "нейросети"]
+    assert d["video"]["tags"] == ["ai", "neural-nets"]
 
 
 def test_shorts_compared_with_shorts():
-    """Shorts не должен мериться со стандартными роликами канала."""
+    """Shorts must not be measured against the channel's standard videos."""
     reset(); seed_channel()
-    seed_videos(n=12, base_views=1_000_000)                 # длинные
+    seed_videos(n=12, base_views=1_000_000)                 # long videos
     seed_videos(n=6, base_views=10_000, days_back=40, is_short=1)  # Shorts
     RAW.execute(
         "INSERT OR REPLACE INTO videos (video_id, channel_id, title, published_at,"
         " duration_seconds, view_count, tags, updated_at, is_short)"
         " VALUES (?,?,?,?,?,?,?,?,?)",
-        ("shrt0000001", CH, "Шортс", iso(NOW - timedelta(days=1)), 45, 30_000, "[]",
+        ("shrt0000001", CH, "Shorts clip", iso(NOW - timedelta(days=1)), 45, 30_000, "[]",
          iso(NOW), 1))
-    d = I.inspect_video("ключ", "shrt0000001")
+    d = I.inspect_video("key", "shrt0000001")
     assert d["metrics"]["baselineMedianViews"] == 10_000, d["metrics"]
     assert abs(d["metrics"]["outlierScore"] - 3.0) < 0.01
 
 
 def test_missing_video_is_fetched_once():
-    """Ролика нет — добираем видео и канал ровно по одному разу."""
+    """The video is missing — we fetch the video and the channel exactly once each."""
     reset()
     API_VIDEOS["vid00000001"] = api_video()
     API_CHANNELS[CH] = api_channel()
-    d = I.inspect_video("ключ", "vid00000001")
+    d = I.inspect_video("key", "vid00000001")
     assert d["found"] and d["source"] == "youtube" and d["fetchedFromApi"]
     assert d["quotaUnits"] == 2, d["quotaUnits"]
     assert CALLS["videos"] == 1 and CALLS["channels"] == 1
-    # и всё осело в базе: повторный вызов уже бесплатный
-    d2 = I.inspect_video("ключ", "vid00000001")
+    # and it all settled into the database: a repeat call is already free
+    d2 = I.inspect_video("key", "vid00000001")
     assert d2["quotaUnits"] == 0 and CALLS["videos"] == 1
 
 
@@ -272,13 +272,13 @@ def test_synthetic_media_flag_roundtrips_from_api():
     reset()
     API_VIDEOS["vid00000001"] = api_video(synthetic=True)
     API_CHANNELS[CH] = api_channel()
-    d = I.inspect_video("ключ", "vid00000001")
+    d = I.inspect_video("key", "vid00000001")
     assert d["video"]["containsSyntheticMedia"] is True
 
     reset()
     API_VIDEOS["vid00000001"] = api_video(synthetic=False)
     API_CHANNELS[CH] = api_channel()
-    d = I.inspect_video("ключ", "vid00000001")
+    d = I.inspect_video("key", "vid00000001")
     assert d["video"]["containsSyntheticMedia"] is False
 
 
@@ -289,7 +289,7 @@ def test_synthetic_media_flag_absent_is_none_not_false():
     reset()
     API_VIDEOS["vid00000001"] = api_video(synthetic=None)
     API_CHANNELS[CH] = api_channel()
-    d = I.inspect_video("ключ", "vid00000001")
+    d = I.inspect_video("key", "vid00000001")
     assert d["video"]["containsSyntheticMedia"] is None
 
 
@@ -301,12 +301,12 @@ def test_no_key_no_data_says_so():
 
 
 def test_fetch_disabled_is_respected():
-    """Выключенная дозагрузка в расширении не должна тратить квоту."""
+    """Fetching turned off in the extension must not spend quota."""
     reset()
     API_VIDEOS["vid00000001"] = api_video()
-    d = I.inspect_video("ключ", "vid00000001", fetch=False)
+    d = I.inspect_video("key", "vid00000001", fetch=False)
     assert d["found"] is False and CALLS["videos"] == 0
-    assert "выключена" in d["hint"]
+    assert "turned off" in d["hint"]
 
 
 def test_velocity_from_history():
@@ -315,15 +315,15 @@ def test_velocity_from_history():
         RAW.execute("INSERT OR REPLACE INTO video_stats_history (video_id, captured_at,"
                     " view_count) VALUES (?,?,?)",
                     ("vid00000001", iso(NOW - timedelta(hours=hours)), views))
-    m = I.inspect_video("ключ", "vid00000001")["metrics"]
+    m = I.inspect_video("key", "vid00000001")["metrics"]
     assert abs(m["vph24h"] - 100_000 / 24) < 1, m["vph24h"]
     assert m["vph7d"] is not None and m["acceleration"] is not None
 
 
 def test_channel_by_handle_without_quota():
-    """@хэндл, уже известный базе, резолвится локально — 0 units."""
+    """An @handle already known to the database resolves locally — 0 units."""
     reset(); seed_channel(handle="@tinylab"); seed_videos(n=8)
-    d = I.inspect_channel("ключ", "@tinylab")
+    d = I.inspect_channel("key", "@tinylab")
     assert d["found"] and d["channelId"] == CH and d["quotaUnits"] == 0
     assert CALLS["resolve"] == 0
     assert d["stored"]["count"] == 8 and d["hasDeepAnalytics"] is True
@@ -333,9 +333,9 @@ def test_channel_by_handle_without_quota():
 def test_channel_unknown_handle_resolves_via_api():
     reset()
     API_CHANNELS["@tinylab"] = api_channel(handle="@tinylab")
-    d = I.inspect_channel("ключ", "@tinylab")
+    d = I.inspect_channel("key", "@tinylab")
     assert d["found"] and d["quotaUnits"] == 1 and CALLS["resolve"] == 1
-    assert d["hasDeepAnalytics"] is False  # роликов в базе ещё нет
+    assert d["hasDeepAnalytics"] is False  # there are no videos in the database yet
 
 
 def test_channel_growth_from_snapshots():
@@ -344,7 +344,7 @@ def test_channel_growth_from_snapshots():
         RAW.execute("INSERT OR REPLACE INTO channel_stats_history (channel_id, captured_at,"
                     " subscriber_count, video_count, view_count) VALUES (?,?,?,?,?)",
                     (CH, iso(NOW - timedelta(days=days)), subs, 50, views))
-    m = I.inspect_channel("ключ", CH)["metrics"]
+    m = I.inspect_channel("key", CH)["metrics"]
     assert m["subsGrowth"]["delta"] == 2000
     assert abs(m["subsGrowth"]["per_day"] - 2000 / 30) < 1
     assert m["monthlyViewsEstimate"] > 0
@@ -352,12 +352,12 @@ def test_channel_growth_from_snapshots():
 
 def test_batch_mixes_known_and_unknown():
     reset(); seed_channel(); seed_videos(n=3); seed_target()
-    out = I.inspect_videos("", ["vid00000001", "old00000000", "нетуТакого"], fetch=False)
+    out = I.inspect_videos("", ["vid00000001", "old00000000", "missing-video"], fetch=False)
     r = out["results"]
     assert out["quotaUnits"] == 0
     assert r["vid00000001"]["found"] and r["vid00000001"]["outlierScore"] is not None
-    assert r["нетуТакого"]["found"] is False
-    # в пачке база сравнения — пожизненное среднее канала (100 000)
+    assert r["missing-video"]["found"] is False
+    # in a batch the comparison baseline is the channel's lifetime mean (100,000)
     assert abs(r["vid00000001"]["outlierScore"] - 4.0) < 0.01
 
 
@@ -380,26 +380,26 @@ def test_batch_fetches_missing_in_one_call():
     reset(); seed_channel()
     for i in range(3):
         API_VIDEOS[f"new{i:08d}"] = api_video(vid=f"new{i:08d}", views=200_000)
-    out = I.inspect_videos("ключ", [f"new{i:08d}" for i in range(3)])
-    assert CALLS["videos"] == 1, "три ролика должны уйти одним запросом"
+    out = I.inspect_videos("key", [f"new{i:08d}" for i in range(3)])
+    assert CALLS["videos"] == 1, "three videos must go out in one request"
     assert out["quotaUnits"] == 1
     assert all(v["found"] for v in out["results"].values())
 
 
 def test_stale_row_is_refreshed():
-    """Запись старше шести часов перечитывается из API."""
+    """A record older than six hours is reread from the API."""
     reset(); seed_channel(); seed_videos(); seed_target(fresh_hours=10)
     API_VIDEOS["vid00000001"] = api_video(views=999_000)
     API_CHANNELS[CH] = api_channel()
-    d = I.inspect_video("ключ", "vid00000001")
+    d = I.inspect_video("key", "vid00000001")
     assert CALLS["videos"] == 1 and d["video"]["views"] == 999_000
 
 
 def test_tracked_flag():
     reset(); seed_channel(); seed_videos(); seed_target()
     RAW.execute("INSERT INTO tracked_channels (channel_id, active) VALUES (?, 1)", (CH,))
-    assert I.inspect_video("ключ", "vid00000001")["channel"]["tracked"] is True
-    assert I.inspect_channel("ключ", CH)["tracked"] is True
+    assert I.inspect_video("key", "vid00000001")["channel"]["tracked"] is True
+    assert I.inspect_channel("key", CH)["tracked"] is True
 
 
 if __name__ == "__main__":
@@ -414,5 +414,5 @@ if __name__ == "__main__":
             except Exception as e:  # noqa: BLE001
                 failed += 1
                 print(f"FAIL  {name}: {type(e).__name__}: {e}")
-    print(f"\n{len(tests) - failed}/{len(tests)} прошло")
+    print(f"\n{len(tests) - failed}/{len(tests)} passed")
     sys.exit(1 if failed else 0)

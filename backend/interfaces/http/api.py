@@ -1,14 +1,14 @@
-"""HTTP API для дашборда. Тонкая обёртка над теми же модулями, что и MCP-сервер --
-никакой логики здесь нет, только маршруты и раздача статики фронта.
+"""HTTP API for the dashboard. A thin wrapper over the same modules as the MCP server --
+there is no logic here, only routes and serving the frontend's static files.
 
     uvicorn api:app --host 127.0.0.1 --port 8080
     docker compose up -d web
 
-Разделение по методам осмысленное, а не косметическое: GET ничего не стоит и
-читает локальную базу, POST тратит квоту YouTube. Сервис слушает только
-127.0.0.1 -- внутри лежит ваш API-ключ, наружу его выставлять незачем.
-От чужих сайтов в браузере прикрывает local_only_guard: проверка Host и
-обязательный JSON или X-NF-Client у POST/PUT/PATCH/DELETE.
+The split by method is meaningful, not cosmetic: GET costs nothing and
+reads the local database, POST spends YouTube quota. The service listens only on
+127.0.0.1 -- your API key is inside, there is no reason to expose it.
+Other sites in the browser are blocked by local_only_guard: a Host check and
+a mandatory JSON body or X-NF-Client on POST/PUT/PATCH/DELETE.
 """
 import hmac
 import os
@@ -86,27 +86,27 @@ app = FastAPI(title="niche-finder", docs_url="/api/docs", openapi_url="/api/open
 
 # --------------------------------------------------------------- rate limiting
 #
-# Сервис слушает только 127.0.0.1, поэтому это не защита от чужого трафика, а
-# предохранитель от зациклившегося клиента: расширение или скрипт, ушедший в
-# бесконечный ретрай, иначе молча жжёт CPU и коннекты к Postgres.
+# The service listens only on 127.0.0.1, so this is not protection from foreign traffic but
+# a fuse against a looping client: an extension or a script that went into
+# an infinite retry would otherwise silently burn CPU and Postgres connections.
 #
-# Дефолт подобран под реальное поведение расширения, а не наугад: оно шлёт до
-# 40 id за один /api/inspect/videos с флашем раз в 500 мс (extension/content.js)
-# и до четырёх параллельных запросов на панель канала (extension/background.js).
-# При быстрой прокрутке выдачи это ~120-200 запросов в минуту, так что 600
-# оставляет тройной запас и всё равно ловит цикл, который делает тысячи.
-# RATE_LIMIT_PER_MINUTE=0 выключает лимитер совсем.
+# The default is tuned to the extension's real behaviour, not guessed: it sends up to
+# 40 ids per /api/inspect/videos with a flush every 500 ms (extension/content.js)
+# and up to four parallel requests per channel panel (extension/background.js).
+# With fast scrolling of the results that is ~120-200 requests a minute, so 600
+# leaves a triple margin and still catches a loop that makes thousands.
+# RATE_LIMIT_PER_MINUTE=0 turns the limiter off entirely.
 RATE_LIMIT_PER_MINUTE = int(os.environ.get("RATE_LIMIT_PER_MINUTE", "600") or 0)
 
-# client host -> времена запросов за последнюю минуту. На 127.0.0.1 ключей
-# всегда один-два, так что чистить словарь целиком незачем.
+# client host -> request times over the last minute. On 127.0.0.1 there are
+# always one or two keys, so there is no need to clean the whole dict.
 _rate_hits = defaultdict(deque)
 
 
 @app.middleware("http")
 async def rate_limit(request, call_next):
-    """Скользящее окно в одну минуту на /api/*. Статику фронта не трогаем:
-    одна загрузка дашборда стоит десятка файлов и съедала бы бюджет."""
+    """A sliding one-minute window on /api/*. Frontend static files are not touched:
+    one dashboard load costs a dozen files and would eat the budget."""
     if RATE_LIMIT_PER_MINUTE <= 0 or not request.url.path.startswith("/api/"):
         return await call_next(request)
 
@@ -126,9 +126,9 @@ async def rate_limit(request, call_next):
         retry_after = max(1, int(60.0 - (now - hits[0])) + 1)
         return JSONResponse(
             status_code=429,
-            content={"detail": f"Больше {RATE_LIMIT_PER_MINUTE} запросов в минуту "
-                               f"к /api. Повторите через {retry_after} с или "
-                               f"поднимите RATE_LIMIT_PER_MINUTE в .env."},
+            content={"detail": f"More than {RATE_LIMIT_PER_MINUTE} requests per minute "
+                               f"to /api. Retry in {retry_after} s or "
+                               f"raise RATE_LIMIT_PER_MINUTE in .env."},
             headers={"Retry-After": str(retry_after)},
         )
 
@@ -136,16 +136,16 @@ async def rate_limit(request, call_next):
     return await call_next(request)
 
 
-# ------------------------------------------------ вход (план 15)
+# ------------------------------------------------ sign-in (plan 15)
 #
-# NF_MULTI_USER=1: без живой сессии /api отвечает 401. Сессия -- случайный
-# токен в cookie nf_session (HttpOnly, SameSite=Strict); в базе только его
-# SHA-256. Открыты без входа: сам вход и «кто я», /api/health (healthcheck
-# контейнера) и возврат из Google OAuth (пользователя там называет одноразовый
-# state, а Strict-cookie при переходе с чужого сайта не приходит). Middleware
-# стоит внутри защиты Host: чужое имя получает 400 раньше, чем 401, и ответы
-# 401 тоже уезжают с заголовками CORS. Без NF_MULTI_USER всё как раньше:
-# пользователь 1, без входа.
+# NF_MULTI_USER=1: without a live session /api answers 401. A session is a random
+# token in the nf_session cookie (HttpOnly, SameSite=Strict); only its
+# SHA-256 is in the database. Open without sign-in: the sign-in itself and "who am I", /api/health (the container
+# healthcheck) and the return from Google OAuth (the user there is named by a one-time
+# state, and a Strict cookie does not arrive on navigation from a foreign site). The middleware
+# sits inside the Host protection: a foreign name gets 400 before 401, and the
+# 401 responses also go out with CORS headers. Without NF_MULTI_USER everything is as before:
+# user 1, no sign-in.
 
 AUTH_COOKIE = "nf_session"
 _PUBLIC_API = frozenset({"/api/auth/login", "/api/auth/logout", "/api/auth/me", "/api/health",
@@ -176,7 +176,7 @@ async def session_guard(request, call_next):
             and request.method != "OPTIONS"):
         return JSONResponse(status_code=401,
                             content={"detail": "Sign in first: NF_MULTI_USER is on -- "
-                                               "войдите в дашборде."})
+                                               "sign in on the dashboard."})
     # plan 15 (5.5): YouTube calls made for this request count against the
     # signed-in user's daily budget (infrastructure/quota_owner.py)
     owner = quota_owner.set_owner(user["id"]) if user else None
@@ -187,35 +187,35 @@ async def session_guard(request, call_next):
             quota_owner.reset(owner)
 
 
-# ------------------------------------------------ защита от чужих сайтов
+# ------------------------------------------------ protection from foreign sites
 #
-# Аутентификации нет, а 127.0.0.1 доступен любой открытой в браузере вкладке.
-# Две дыры, которые это открывает, и чем они закрыты:
+# There is no authentication, and 127.0.0.1 is reachable by any tab open in the browser.
+# The two holes this opens, and how they are closed:
 #
-# 1. DNS rebinding: чужой домен начинает резолвиться в 127.0.0.1, и его
-#    страница читает /api/* как свой origin. Браузер при этом шлёт Host с
-#    чужим именем -- отвечаем 400 на всё, чего нет в ALLOWED_HOSTS.
-# 2. "Простой" cross-origin POST (form/fetch без своих заголовков, text/plain)
-#    уходит без CORS-preflight. Тела с JSON FastAPI и так отсекает по
-#    content-type, но маршруты, которые берут параметры только из query
-#    (enrich, events/scan, reindex, recompute), выполнились бы. Поэтому любой
-#    изменяющий запрос обязан нести Content-Type JSON или X-NF-Client: оба
-#    заставляют браузер сначала спросить preflight, а его CORS пропускает
-#    только для chrome-extension://.
+# 1. DNS rebinding: a foreign domain starts resolving to 127.0.0.1, and its
+#    page reads /api/* as its own origin. The browser then sends a Host with
+#    a foreign name -- we answer 400 to anything not in ALLOWED_HOSTS.
+# 2. A "simple" cross-origin POST (form/fetch without own headers, text/plain)
+#    goes out without a CORS preflight. FastAPI rejects JSON bodies by
+#    content-type anyway, but routes that take parameters only from the query
+#    (enrich, events/scan, reindex, recompute) would run. So any
+#    mutating request must carry a JSON Content-Type or X-NF-Client: both
+#    make the browser ask a preflight first, and CORS lets that through
+#    only for chrome-extension://.
 #
-# Своё middleware, а не starlette TrustedHostMiddleware: тот режет Host по
-# первому ":" и ломает [::1]:8080, отвечает plain text вместо нашего JSON с
-# detail и фиксирует список при создании (тесты не могут его подменить).
+# Our own middleware, not starlette's TrustedHostMiddleware: that one cuts Host at
+# the first ":" and breaks [::1]:8080, answers plain text instead of our JSON with
+# detail, and fixes the list at creation (tests cannot replace it).
 
 _LOCAL_HOSTS = ("127.0.0.1", "localhost", "[::1]",
-                # имя сервиса и container_name из docker-compose.yml -- так web
-                # видят другие контейнеры в сети niche-finder_default
+                # the service name and container_name from docker-compose.yml -- that is how web
+                # is seen by other containers in the niche-finder_default network
                 "web", "niche-finder-web")
 
 
 def _host_name(value):
-    """Имя из заголовка Host без порта, в нижнем регистре; "" -- если заголовок
-    кривой (порт не число, незакрытая скобка IPv6)."""
+    """The name from the Host header without the port, lower-cased; "" -- if the header
+    is malformed (a non-numeric port, an unclosed IPv6 bracket)."""
     value = (value or "").strip().lower()
     if value.startswith("["):
         end = value.find("]")
@@ -232,8 +232,8 @@ def _host_name(value):
 
 
 def _allowed_hosts(extra):
-    """Локальные имена плюс NF_ALLOWED_HOSTS (через запятую, порт можно
-    указывать -- он отбрасывается)."""
+    """Local names plus NF_ALLOWED_HOSTS (comma-separated, a port may
+    be given -- it is discarded)."""
     hosts = set(_LOCAL_HOSTS)
     for item in (extra or "").split(","):
         name = _host_name(item)
@@ -259,30 +259,30 @@ async def local_only_guard(request, call_next):
         shown = (host or "")[:100]
         return JSONResponse(
             status_code=400,
-            content={"detail": f"Недопустимый заголовок Host: {shown!r}. API отвечает "
-                               f"только на 127.0.0.1, localhost и [::1]; другое имя "
-                               f"добавьте в NF_ALLOWED_HOSTS в .env."})
+            content={"detail": f"Invalid Host header: {shown!r}. The API answers "
+                               f"only on 127.0.0.1, localhost and [::1]; add another name "
+                               f"to NF_ALLOWED_HOSTS in .env."})
     if (request.method in _UNSAFE_METHODS
             and not _is_json(request.headers.get("content-type"))
             and not request.headers.get("x-nf-client", "").strip()):
         return JSONResponse(
             status_code=403,
-            content={"detail": "Изменяющий запрос без Content-Type: application/json "
-                               "и без заголовка X-NF-Client отклонён -- так выглядит "
-                               "запрос с чужого сайта. Добавьте заголовок "
-                               "X-NF-Client: <имя клиента>."})
+            content={"detail": "A mutating request without Content-Type: application/json "
+                               "and without an X-NF-Client header was rejected -- this is what "
+                               "a request from a foreign site looks like. Add the header "
+                               "X-NF-Client: <client name>."})
     return await call_next(request)
 
 
-# Лимитер и защита объявлены ВЫШЕ CORS намеренно: последний добавленный
-# middleware в Starlette оказывается внешним, поэтому так CORS оборачивает их
-# обоих и ответы 429/403/400 тоже уезжают с нужными заголовками -- иначе
-# расширение увидело бы вместо честной ошибки непрозрачную ошибку CORS. По той
-# же причине preflight (OPTIONS) CORS отвечает сам и до защиты он не доходит.
-# Расширение для Chrome ходит сюда со своего origin (chrome-extension://...).
-# Service worker с host_permissions обошёлся бы и без CORS, но с заголовками
-# запросы можно отлаживать прямо из консоли страницы. Сервис слушает только
-# 127.0.0.1, поэтому наружу это ничего не открывает.
+# The limiter and the guard are declared ABOVE CORS on purpose: the last added
+# middleware in Starlette ends up outermost, so this way CORS wraps both of them
+# and the 429/403/400 responses also go out with the needed headers -- otherwise
+# the extension would see an opaque CORS error instead of the honest one. For the same
+# reason a preflight (OPTIONS) is answered by CORS itself and never reaches the guard.
+# The Chrome extension comes here from its own origin (chrome-extension://...).
+# A service worker with host_permissions would manage without CORS, but with the headers
+# requests can be debugged right from the page console. The service listens only on
+# 127.0.0.1, so this opens nothing to the outside.
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"chrome-extension://.*",
@@ -295,8 +295,8 @@ def _need_key():
     if not API_KEY:
         raise HTTPException(
             status_code=428,
-            detail="YOUTUBE_API_KEY не задан. Впишите его в .env рядом с "
-                   "docker-compose.yml и перезапустите: docker compose up -d web",
+            detail="YOUTUBE_API_KEY is not set. Put it in .env next to "
+                   "docker-compose.yml and restart: docker compose up -d web",
         )
 
 
@@ -315,7 +315,7 @@ async def _unhandled(request, exc):  # pragma: no cover
                                                   "detail": msg[:800]})
 
 
-# ------------------------------------------------------------------ статус
+# ------------------------------------------------------------------ status
 
 @app.get("/api/health")
 def health():
@@ -356,7 +356,7 @@ def coverage(period: str = "24h"):
     return trends.coverage(period)
 
 
-# ------------------------------------------------------------------ разделы
+# ------------------------------------------------------------------ sections
 
 @app.get("/api/viral")
 def viral(period: str = "7d", period_by: str = "published",
@@ -460,10 +460,10 @@ def check_ideas(payload: dict = Body(...)):
 
 @app.get("/api/overview")
 def overview(period: str = "24h", niche: str = None):
-    """Всё для главной одним запросом -- иначе страница делает шесть.
+    """Everything for the home page in one request -- otherwise the page makes six.
 
-    Периоды разные намеренно: 24h для того, что действительно обновляется за
-    сутки, и более широкие окна для срезов, которым нужна статистика.
+    The periods differ on purpose: 24h for what really updates within a
+    day, and wider windows for the cuts that need statistics.
     """
     wide = "30d" if period in ("1h", "6h", "24h", "48h") else period
     return {
@@ -486,7 +486,7 @@ def overview(period: str = "24h", niche: str = None):
     }
 
 
-# ------------------------------------------------------------------ каналы
+# ------------------------------------------------------------------ channels
 
 @app.get("/api/niches")
 def niches():
@@ -564,7 +564,7 @@ def tracked(request: Request, faceless: bool = None, content_format: str = None,
 def channel(channel_id: str, period: str = "30d"):
     res = T.channel_analytics(channel_id, period=period)
     if not res.get("found"):
-        raise HTTPException(status_code=404, detail=res.get("hint", "канал не найден"))
+        raise HTTPException(status_code=404, detail=res.get("hint", "channel not found"))
     return res
 
 
@@ -1010,8 +1010,8 @@ def test_notification(request: Request):
     notifier = NS.notifier_for(_uid(request))
     if NS.target_name(_uid(request)) == "none":
         raise HTTPException(status_code=409, detail="no Telegram or webhook set up yet")
-    return {"sent": bool(notifier.send("\U0001F9EA niche-finder: тестовое сообщение. "
-                                       "Если вы это видите, уведомления настроены верно."))}
+    return {"sent": bool(notifier.send("\U0001F9EA niche-finder: test message. "
+                                       "If you see this, notifications are set up correctly."))}
 
 
 @app.post("/api/briefs")
@@ -1187,8 +1187,8 @@ def own_connect(request: Request, response: Response, payload: dict = Body(defau
 
 @app.get("/api/own/oauth/callback")
 def own_oauth_callback(request: Request, state: str = "", code: str = "", error: str = ""):
-    """Google's redirect after consent. Always lands on the dashboard's "Мои
-    каналы" screen with a short result -- never a stack trace or a token."""
+    """Google's redirect after consent. Always lands on the dashboard's "My
+    channels" screen with a short result -- never a stack trace or a token."""
     def done(fragment):
         resp = RedirectResponse(f"/#/own?{fragment}", status_code=303)
         resp.delete_cookie(OAUTH_STATE_COOKIE, path=_OAUTH_CALLBACK_PATH)
@@ -1293,14 +1293,14 @@ def title_patterns(niche: str = None, channel_id: str = None, period: str = "90d
                             min_videos=min_videos, top_n=top_n)
 
 
-# ------------------------------------------- операции, которые тратят квоту
+# ------------------------------------------- operations that spend quota
 
 @app.post("/api/collect/channel")
 def collect_channel(request: Request, payload: dict = Body(...)):
     _need_key()
     ref = (payload.get("channel") or "").strip()
     if not ref:
-        raise HTTPException(status_code=400, detail="нужно поле channel")
+        raise HTTPException(status_code=400, detail="the channel field is required")
     res = collector.collect_channel(API_KEY, ref,
                                     max_videos=int(payload.get("max_videos", 100)),
                                     niche=payload.get("niche") or None)
@@ -1317,7 +1317,7 @@ def collect_niche(payload: dict = Body(...)):
     _need_key()
     q = (payload.get("query") or "").strip()
     if not q:
-        raise HTTPException(status_code=400, detail="нужно поле query")
+        raise HTTPException(status_code=400, detail="the query field is required")
     return collector.collect_niche(
         API_KEY, q, label=payload.get("label") or None,
         language=payload.get("language") or None,
@@ -1500,7 +1500,7 @@ def why_viral(video_id: str, force_refresh: bool = False):
 def track(request: Request, payload: dict = Body(...)):
     raw = (payload.get("channel_id") or "").strip()
     if not raw:
-        raise HTTPException(status_code=400, detail="нужно поле channel_id")
+        raise HTTPException(status_code=400, detail="the channel_id field is required")
     conn = db.get_conn()
     try:
         cid = T.resolve_channel_id(conn, API_KEY or None, raw)
@@ -1516,10 +1516,10 @@ def untrack(request: Request, channel_id: str):
     return T.untrack(channel_id, user_id=_uid(request))
 
 
-# ------------------------------------- разбор произвольной страницы YouTube
-# Эти три маршрута обслуживают браузерное расширение: пользователь открыл
-# случайный ролик, которого может не быть в базе. Сначала смотрим Postgres,
-# при промахе добираем 1-2 units и сохраняем — см. application/inspection.py.
+# ------------------------------------- analysing an arbitrary YouTube page
+# These three routes serve the browser extension: the user opened
+# a random video that may not be in the database. First we look at Postgres,
+# on a miss we fetch for 1-2 units and save — see application/inspection.py.
 
 @app.get("/api/inspect/video")
 def inspect_video(request: Request, video_id: str, refresh: bool = False, fetch: bool = True):
@@ -1535,16 +1535,16 @@ def inspect_channel(request: Request, ref: str, refresh: bool = False, fetch: bo
 def inspect_videos(payload: dict = Body(...)):
     ids = payload.get("ids") or []
     if not isinstance(ids, list):
-        raise HTTPException(status_code=400, detail="ids должен быть списком")
+        raise HTTPException(status_code=400, detail="ids must be a list")
     return I.inspect_videos(API_KEY, ids, fetch=bool(payload.get("fetch", True)))
 
 
-# ---------------------------------------------------------------- статика
+# ---------------------------------------------------------------- static files
 
 @app.middleware("http")
 async def _no_cache_static(request, call_next):
-    """Локальный дашборд правят на живую, поэтому кэш браузера тут только мешает:
-    поправил styles.css — перезагрузил страницу и сразу видишь результат."""
+    """The local dashboard is edited live, so the browser cache only gets in the way here:
+    edit styles.css — reload the page and see the result at once."""
     response = await call_next(request)
     if not request.url.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
@@ -1556,5 +1556,5 @@ if FRONTEND_DIR.is_dir():
 else:  # pragma: no cover
     @app.get("/")
     def _no_frontend():
-        return {"error": f"Папка фронта не найдена: {FRONTEND_DIR}",
-                "hint": "Задайте FRONTEND_DIR или смонтируйте ./frontend в контейнер"}
+        return {"error": f"Frontend folder not found: {FRONTEND_DIR}",
+                "hint": "Set FRONTEND_DIR or mount ./frontend into the container"}

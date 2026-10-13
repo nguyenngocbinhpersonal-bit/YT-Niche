@@ -11,8 +11,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-# Выставляет NICHE_DB_SCHEMA (своя одноразовая схема на процесс) и вешает её
-# удаление на atexit -- импорт нужен именно ради этого побочного эффекта.
+# Sets NICHE_DB_SCHEMA (a throwaway schema of its own per process) and hooks its
+# removal on atexit -- the import is needed precisely for this side effect.
 import schema_scope  # noqa: F401,E402
 
 import pytest  # noqa: E402
@@ -130,7 +130,7 @@ def test_hook_is_the_first_75_words_of_a_pasted_transcript():
 
 def test_missing_transcript_tells_you_what_to_paste_and_queues_it_only_on_save():
     b = BR.build_brief(SRC, use_llm=False, save=False)
-    assert b["hook"]["available"] is False and "Транскрипты" in b["hook"]["action"]
+    assert b["hook"]["available"] is False and "Transcripts" in b["hook"]["action"]
     assert "hook" in _parts(b)
     assert _rows("SELECT * FROM transcript_requests") == []      # a preview writes nothing
     BR.build_brief(SRC, use_llm=False, save=True)

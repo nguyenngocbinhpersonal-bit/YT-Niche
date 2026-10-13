@@ -17,7 +17,7 @@ RUFF    ?= uvx ruff@$(RUFF_VERSION)
 
 .PHONY: help doctor build up up-db web open down logs worker mcp http shell test seed stats clean local-install local-test lint frontend-test local-run dev cli api-docs extension-zip
 
-doctor: ## проверить ключ, сеть и базу (начните отсюда)
+doctor: ## check the key, network and database (start here)
 	$(COMPOSE) run --rm mcp python cli.py doctor
 
 help:
@@ -26,21 +26,21 @@ help:
 build:  ## build the image (PREFETCH_MODEL=1 bakes in the embedding model)
 	$(COMPOSE) build
 
-up:     ## поднять дашборд и фоновый сборщик
+up:     ## start the dashboard and the background collector
 	$(COMPOSE) up -d web worker
-	@echo "Дашборд: http://localhost:$${WEB_PORT:-8080}"
+	@echo "Dashboard: http://localhost:$${WEB_PORT:-8080}"
 
-web:    ## только дашборд
+web:    ## the dashboard only
 	$(COMPOSE) up -d web
-	@echo "Дашборд: http://localhost:$${WEB_PORT:-8080}"
+	@echo "Dashboard: http://localhost:$${WEB_PORT:-8080}"
 
-open:   ## открыть дашборд в браузере
+open:   ## open the dashboard in the browser
 	open "http://localhost:$${WEB_PORT:-8080}"
 
 down:   ## stop everything
 	$(COMPOSE) down
 
-logs:   ## логи сборщика и дашборда
+logs:   ## logs of the collector and the dashboard
 	$(COMPOSE) logs -f worker web
 
 mcp:    ## run the MCP server on stdio (manual poke)
@@ -52,9 +52,9 @@ http:   ## expose the MCP server over HTTP on :8765
 shell:  ## shell inside the image, with the models volume mounted
 	docker run --rm -it --network niche-finder_default -v niche-finder-models:/models $(IMAGE) bash
 
-# Схема make_test переиспользуется между запусками, поэтому чистим её ПЕРЕД
-# прогоном: иначе данные прошлого раза ломают тесты, завязанные на свежий
-# discovered_at (make test был зелёным только при первом запуске).
+# The make_test schema is reused between runs, so we clean it BEFORE
+# the run: otherwise data from the last time breaks tests that depend on a fresh
+# discovered_at (make test was green only on the first run).
 test:   ## run the smoke tests inside the image, against postgres (needs: make up-db)
 	@$(COMPOSE) exec -T postgres sh -c \
 	  'psql -q -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -c "DROP SCHEMA IF EXISTS make_test CASCADE"' >/dev/null
@@ -72,7 +72,7 @@ stats:  ## what is in the database right now (needs: make up-db)
 up-db:  ## just the database, e.g. before make test/seed/stats
 	$(COMPOSE) up -d postgres
 
-cli:    ## произвольная команда CLI:  make cli ARGS="viral --period 24h"
+cli:    ## an arbitrary CLI command:  make cli ARGS="viral --period 24h"
 	$(COMPOSE) run --rm mcp python cli.py $(ARGS)
 
 clean:  ## delete the Postgres data volume (irreversible)
@@ -82,30 +82,30 @@ local-install:  ## venv + deps, without Docker (needs Python 3.10+, auto-detecte
 	@ver=$$($(PYTHON) -c 'import sys; print("%d.%d" % sys.version_info[:2])'); \
 	  major=$$(echo $$ver | cut -d. -f1); minor=$$(echo $$ver | cut -d. -f2); \
 	  if [ "$$major" -lt 3 ] || { [ "$$major" -eq 3 ] && [ "$$minor" -lt 10 ]; }; then \
-	    echo "ОШИБКА: $(PYTHON) -> Python $$ver, а пакету mcp нужен 3.10+."; \
-	    echo "Поставьте современный Python (например: brew install python@3.12) и повторите,"; \
-	    echo "либо укажите явно:  make local-install PYTHON=python3.12"; \
+	    echo "ERROR: $(PYTHON) -> Python $$ver, but the mcp package needs 3.10+."; \
+	    echo "Install a modern Python (for example: brew install python@3.12) and retry,"; \
+	    echo "or specify it explicitly:  make local-install PYTHON=python3.12"; \
 	    exit 1; \
 	  fi; \
-	  echo "используется $$($(PYTHON) --version) ($(PYTHON))"
+	  echo "using $$($(PYTHON) --version) ($(PYTHON))"
 	cd backend && $(PYTHON) -m venv .venv \
 	  && ./.venv/bin/pip install --upgrade pip \
 	  && ./.venv/bin/pip install -r requirements.txt pytest
 
-# Тесты намеренно не читают .env (им не нужны ни ключ, ни сеть),
-# поэтому NICHE_DATABASE_URL достаём из .env здесь -- иначе хостовый прогон
-# уходит на localhost:5432 и падает с Connection refused.
-# Как в CI: весь tests/ одним процессом pytest. Изоляцию файлов друг от друга
-# даёт tests/conftest.py -- у Postgres-тестов своя свежая схема на файл, а
-# sqlite-двойники живут в отдельном мире модулей, не в sys.modules
-# (tests/module_doubles.py). Код выхода -- как у pytest.
+# The tests deliberately do not read .env (they need neither a key nor the network),
+# so NICHE_DATABASE_URL is pulled from .env here -- otherwise a host run
+# goes to localhost:5432 and fails with Connection refused.
+# As in CI: the whole tests/ in one pytest process. Isolation of files from each other
+# is provided by tests/conftest.py -- Postgres tests get a fresh schema per file, and
+# sqlite doubles live in a separate module world, not in sys.modules
+# (tests/module_doubles.py). The exit code is pytest's.
 local-test:     ## run all backend tests on the host in one pytest process
 	@cd backend && export NICHE_DATABASE_URL="$${NICHE_DATABASE_URL:-$$(grep -E '^NICHE_DATABASE_URL=' ../.env 2>/dev/null | sed -E 's/^[^=]+=//; s/^"//; s/"$$//' | tr -d '\r')}"; \
 	  ./.venv/bin/python -m pytest -q -p no:cacheprovider tests/
 
-# Та же версия ruff, что в CI (.github/workflows/ci.yml); конфиг -- в
-# backend/pyproject.toml. uvx (из uv) скачивает ruff сам, в .venv он не нужен;
-# без uv:  make lint RUFF=ruff  (ruff==$(RUFF_VERSION) из pip).
+# The same ruff version as in CI (.github/workflows/ci.yml); the config is in
+# backend/pyproject.toml. uvx (from uv) downloads ruff itself, it is not needed in .venv;
+# without uv:  make lint RUFF=ruff  (ruff==$(RUFF_VERSION) from pip).
 lint:           ## lint the backend with ruff (same pinned version as CI)
 	$(RUFF) check backend
 
@@ -115,9 +115,9 @@ api-docs:       ## regenerate docs/http-api.md from the HTTP routes (CI checks i
 extension-zip:  ## pack extension/ into dist/niche-finder-extension-v<version>.zip (committed files only)
 	sh scripts/package_extension.sh
 
-# Смоук-тест дашборда в headless Chromium (frontend/tests/test_smoke.py): свой
-# uvicorn на свободном порту + своя схема с демо-данными, рабочую базу не трогает.
-# Один раз: ./backend/.venv/bin/pip install -r frontend/tests/requirements.txt
+# The dashboard smoke test in headless Chromium (frontend/tests/test_smoke.py): its own
+# uvicorn on a free port + its own schema with demo data; it does not touch the working database.
+# Once: ./backend/.venv/bin/pip install -r frontend/tests/requirements.txt
 #           ./backend/.venv/bin/python -m playwright install chromium
 frontend-test:  ## browser smoke test of every dashboard screen (needs: make up-db)
 	@cd backend && export NICHE_DATABASE_URL="$${NICHE_DATABASE_URL:-$$(grep -E '^NICHE_DATABASE_URL=' ../.env 2>/dev/null | sed -E 's/^[^=]+=//; s/^"//; s/"$$//' | tr -d '\r')}"; \
@@ -126,9 +126,9 @@ frontend-test:  ## browser smoke test of every dashboard screen (needs: make up-
 local-run:      ## run the MCP server on the host
 	cd backend && ./.venv/bin/python server.py
 
-# Требует в .env строку NICHE_DATABASE_URL=postgresql://niches:niches@localhost:5433/niches
-# (база из compose опубликована на 5433, а дефолт в коде -- 5432) и свободный
-# :8080 -- при поднятом контейнере web сначала `docker compose stop web`,
-# иначе хостовый uvicorn перехватит порт и проброс контейнера тихо отвалится.
+# Requires the line NICHE_DATABASE_URL=postgresql://niches:niches@localhost:5433/niches in .env
+# (the compose database is published on 5433, while the default in code is 5432) and a free
+# :8080 -- with the web container up, first `docker compose stop web`,
+# otherwise the host uvicorn will grab the port and the container's port forward will silently break.
 dev:    ## run the HTTP dashboard on the host, no Docker (needs: make local-install + NICHE_DATABASE_URL in .env)
 	cd backend && ./.venv/bin/python -m uvicorn api:app --reload --host 127.0.0.1 --port 8080

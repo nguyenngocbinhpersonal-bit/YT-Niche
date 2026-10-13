@@ -53,8 +53,8 @@ Everything lives in the Postgres database you point the app at (by default the
   minutes and subscribers gained by format -- Shorts, long videos, live
   (`own_channel_daily`, plan 24). This is private data about you. It
   never leaves your database except as the read requests to Google below; the
-  token is never logged or returned by the API. **Отключить** on the "Мои
-  каналы" screen revokes the token at Google and deletes all of it; you can
+  token is never logged or returned by the API. **Disconnect** on the "My
+  channels" screen revokes the token at Google and deletes all of it; you can
   also remove access at https://myaccount.google.com/permissions.
 
 The YouTube metadata is public information about other people's channels,
@@ -81,7 +81,7 @@ explicit click (dashboard) or tool call (MCP) naming a specific video —
 there is no bulk or background mode.
 
 **Second exception: `content_gaps` (plan 03), and only when you ask it to
-fetch.** With `fetch=true` (the "Прочитать комментарии" button on a niche
+fetch.** With `fetch=true` (the "Read comments" button on a niche
 screen) it reads the top comments of that niche's most-viewed videos, 1 quota
 unit per video. Without an LLM it keeps, per video, only the comments that ask
 a question or request a video -- their **text and like count, never the
@@ -93,7 +93,7 @@ The worker never calls it; without `fetch` it only reads that cache.
 **Transcripts (stage 19) are never fetched — you paste them, and they stay
 local.** There is no subtitle-download code anywhere in this project: you
 copy the text off YouTube's own transcript panel and paste it into the
-dashboard's Транскрипты screen (or via the MCP tool). The pasted text and
+dashboard's Transcripts screen (or via the MCP tool). The pasted text and
 its chunk embeddings are stored only in your own Postgres
 (`transcripts`/`transcript_chunks`) -- nothing about a transcript is sent
 to YouTube, OpenRouter, or anywhere else. Chunk embeddings are computed by
@@ -102,12 +102,12 @@ the same local `fastembed` model everything else in this project uses (see
 network call in this whole feature).
 
 *One exception, opt-in and per video:* `hook_report(llm=true)` (the
-"LLM-разбор" checkbox next to the "Крючок" button) sends the text of the
+"LLM analysis" checkbox next to the "Hook" button) sends the text of the
 first ~30 seconds of ONE transcript to your configured LLM provider. It
 never happens automatically, and it is a no-op with `LLM_PROVIDER=none`.
 The cache (`video_insights`, task `hook`) stores only the model's answer and a
-hash of that text, not the text itself. `score_hook_text` (the "Проверить
-вступление" card) scores a draft intro in memory: it does not save it, log
+hash of that text, not the text itself. `score_hook_text` (the "Check the
+intro" card) scores a draft intro in memory: it does not save it, log
 it, or send it anywhere.
 
 ## How long it is kept
@@ -120,7 +120,7 @@ channel not refreshed for 25 days (`REFRESH_STALE_DAYS`), oldest first, up to
 `REFRESH_STALE_MAX_VIDEOS` videos and `REFRESH_STALE_MAX_CHANNELS` channels:
 titles, descriptions, tags and counters are replaced with what YouTube shows
 now, and a new snapshot is added. A video or channel the API no longer
-returns is marked "gone" and kept. The "Данные" screen shows how many rows
+returns is marked "gone" and kept. The "Data" screen shows how many rows
 are older than that. The history (stats snapshots, title and thumbnail
 changes, archived thumbnails) is kept without limit; YouTube's API policies
 allow that only with their approval, see SECURITY.md.
@@ -144,9 +144,9 @@ box — the application contacts exactly three external hosts:
 | `www.googleapis.com` | YouTube Data API v3 — every quota-spending call | Yes |
 | `www.youtube.com` | Channel RSS feeds (`/feeds/videos.xml`), used by the free upload watcher | No |
 | `i.ytimg.com` | Thumbnail images of tracked channels' videos from the last `WORKER_FULL_PERIOD`, every `WORKER_THUMBS_INTERVAL_MIN`, to notice thumbnail swaps (the API cannot). Plain image GETs — Google sees which videos you check. `WORKER_THUMBS=0` turns it off | No |
-| `i.ytimg.com` | Plan 13, **off by default**: with `WORKER_THUMB_EMBED=1` (or the "Посчитать векторы превью" button / `embed_thumbnails`) the thumbnails of any collected videos, to compute their CLIP vectors locally; the image is dropped after that | No |
+| `i.ytimg.com` | Plan 13, **off by default**: with `WORKER_THUMB_EMBED=1` (or the "Compute the niche's thumbnail vectors" button / `embed_thumbnails`) the thumbnails of any collected videos, to compute their CLIP vectors locally; the image is dropped after that | No |
 | `accounts.google.com`, `oauth2.googleapis.com` | Plan 14, only when you connect your own channel: the sign-in page, then the code-for-token exchange, token refresh before each sync, and the revoke on disconnect | Your OAuth client id/secret and refresh token, to Google only |
-| `youtubeanalytics.googleapis.com`, `www.googleapis.com` | Plan 14: your channel's Analytics reports (daily, and on "Обновить цифры") and which channel the token belongs to | The OAuth access token, to Google only |
+| `youtubeanalytics.googleapis.com`, `www.googleapis.com` | Plan 14: your channel's Analytics reports (daily, and on "Refresh numbers") and which channel the token belongs to | The OAuth access token, to Google only |
 | `huggingface.co` | Plan 13: the CLIP image model (~0.34 GB) the first time a thumbnail is embedded, and the CLIP text model (~0.25 GB) the first time thumbnails are searched by text; cached in the models volume after that | No |
 
 Two more appear the first time you set the project up, and are not the running
@@ -206,8 +206,8 @@ category as the `fastembed` download mentioned above.
 
 ## Watched topics
 
-A topic you name on the "Алерты" screen, through `watch_topic` or the
-extension's "Следить за темой" button is stored as its text and a local
+A topic you name on the "Alerts" screen, through `watch_topic` or the
+extension's "Follow topic" button is stored as its text and a local
 embedding of it (`user_topics`, personal: `user_id`). Matching runs inside
 your database; the text goes nowhere. Removing a topic deletes its row; the
 alerts it raised stay in your feed.

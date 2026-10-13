@@ -243,37 +243,37 @@ def _format_message(ev: dict) -> str:
     kind = ev["kind"]
     if kind == "outlier":
         text = (f"\U0001F680 <b>Outlier</b>: {_html_escape(p.get('title'))}\n"
-               f"×{p.get('outlierScore')} · {p.get('views')} просмотров")
+               f"×{p.get('outlierScore')} · {p.get('views')} views")
     elif kind == "acceleration":
-        text = (f"⚡ <b>Ускорение</b>: {_html_escape(p.get('title'))}\n"
-               f"×{p.get('acceleration')} · {p.get('vph24h')} VPH за 24ч")
+        text = (f"⚡ <b>Acceleration</b>: {_html_escape(p.get('title'))}\n"
+               f"×{p.get('acceleration')} · {p.get('vph24h')} VPH over 24h")
     elif kind == "title_change":
-        text = (f"✏️ <b>Смена заголовка</b>\n"
-               f"«{_html_escape(p.get('oldTitle'))}» → «{_html_escape(p.get('newTitle'))}»")
+        text = (f"✏️ <b>Title change</b>\n"
+               f"“{_html_escape(p.get('oldTitle'))}” → “{_html_escape(p.get('newTitle'))}”")
     elif kind == "silence_break":
-        text = (f"\U0001F514 <b>Вернулись после паузы</b>: {_html_escape(p.get('title'))}\n"
-               f"молчали {p.get('gapDays')} дней")
+        text = (f"\U0001F514 <b>Back after a pause</b>: {_html_escape(p.get('title'))}\n"
+               f"silent for {p.get('gapDays')} days")
     elif kind == "channel_gone":
-        text = (f"\U0001F6AB <b>Канал больше не доступен</b>: {_html_escape(p.get('title'))}\n"
-               f"было {p.get('subscribers')} подписчиков · {p.get('views')} просмотров · "
-               f"{p.get('videoCount')} видео\n"
-               f"не отвечает API с {(p.get('goneSince') or '')[:10]}")
+        text = (f"\U0001F6AB <b>Channel no longer available</b>: {_html_escape(p.get('title'))}\n"
+               f"had {p.get('subscribers')} subscribers · {p.get('views')} views · "
+               f"{p.get('videoCount')} videos\n"
+               f"not answering the API since {(p.get('goneSince') or '')[:10]}")
     elif kind == "milestone":
-        text = (f"\U0001F3C1 <b>Рубеж</b>: {_html_escape(p.get('title'))}\n"
-               f"{p.get('milestone')} подписчиков (сейчас {p.get('subscribers')})")
+        text = (f"\U0001F3C1 <b>Milestone</b>: {_html_escape(p.get('title'))}\n"
+               f"{p.get('milestone')} subscribers (now {p.get('subscribers')})")
     elif kind == "topic_match":
-        text = (f"\U0001F3AF <b>Тема «{_html_escape(p.get('topic'))}»</b>: "
+        text = (f"\U0001F3AF <b>Topic “{_html_escape(p.get('topic'))}”</b>: "
                f"{_html_escape(p.get('title'))}\n"
-               f"{_html_escape(p.get('channelTitle') or '')} · похожесть {p.get('similarity')}")
+               f"{_html_escape(p.get('channelTitle') or '')} · similarity {p.get('similarity')}")
     elif kind == "draft_due":
         # plan 33: a planned draft -- the day before and when its time comes
         from application import content_calendar as CAL
-        text = (f"\U0001F4C5 <b>Черновик</b>: {_html_escape(p.get('title'))}\n"
+        text = (f"\U0001F4C5 <b>Draft</b>: {_html_escape(p.get('title'))}\n"
                 f"{_html_escape(CAL.event_text(p))}\n"
-                f'<a href="{DASHBOARD_URL}/#/calendar">календарь</a>')
+                f'<a href="{DASHBOARD_URL}/#/calendar">calendar</a>')
     elif kind == "video_gone":
-        text = (f"\U0001F6AB <b>Видео больше не доступно</b>: {_html_escape(p.get('title'))}\n"
-               f"было outlier ×{p.get('outlierScore')} · {p.get('views')} просмотров")
+        text = (f"\U0001F6AB <b>Video no longer available</b>: {_html_escape(p.get('title'))}\n"
+               f"was outlier ×{p.get('outlierScore')} · {p.get('views')} views")
     else:
         text = f"{_html_escape(kind)}: {_html_escape(json.dumps(p, ensure_ascii=False))}"
 
@@ -281,7 +281,7 @@ def _format_message(ev: dict) -> str:
     if p.get("videoId"):
         links.append(f'<a href="https://www.youtube.com/watch?v={p["videoId"]}">YouTube</a>')
     if p.get("channelId"):
-        links.append(f'<a href="{DASHBOARD_URL}/#/channel/{p["channelId"]}">дашборд</a>')
+        links.append(f'<a href="{DASHBOARD_URL}/#/channel/{p["channelId"]}">dashboard</a>')
     if links:
         text += "\n" + " · ".join(links)
     return text
@@ -341,9 +341,9 @@ def deliver(max_per_cycle: int = NOTIFY_MAX_PER_CYCLE, user_id: int = LOCAL_USER
             by_kind = {}
             for ev in rest:
                 by_kind[ev["kind"]] = by_kind.get(ev["kind"], 0) + 1
-            lines = [f"\U0001F4EC И ещё {len(rest)} алертов:"]
+            lines = [f"\U0001F4EC {len(rest)} more alerts:"]
             lines += [f"• {_html_escape(k)}: {n}" for k, n in by_kind.items()]
-            lines.append(f'<a href="{DASHBOARD_URL}/#/data">открыть дашборд</a>')
+            lines.append(f'<a href="{DASHBOARD_URL}/#/data">open the dashboard</a>')
             if notifier.send("\n".join(lines)):
                 for ev in rest:
                     db.mark_alert_delivered(conn, str(ev["id"]), channel, user_id=user_id)

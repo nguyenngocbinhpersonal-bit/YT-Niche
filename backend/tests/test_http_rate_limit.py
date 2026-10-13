@@ -1,7 +1,7 @@
-"""Лимитер запросов к HTTP API (interfaces/http/api.py).
+"""The request limiter for the HTTP API (interfaces/http/api.py).
 
-Тот же одноразовый-схемный сетап, что и в остальных тестах (tests/schema_scope.py):
-сеть и ключ YouTube не нужны -- дёргаем только /api/health.
+The same throwaway-schema setup as in the other tests (tests/schema_scope.py):
+no network or YouTube key is needed -- we only hit /api/health.
 """
 import os
 import sys
@@ -22,11 +22,11 @@ def _reset():
 
 
 def test_default_limit_survives_a_realistic_extension_burst():
-    """Расширение шлёт до 40 id за раз с флашем раз в 500 мс плюс до четырёх
-    параллельных запросов на панель канала -- это ~120-200 запросов в минуту.
-    Дефолт обязан пропускать такой всплеск целиком."""
+    """The extension sends up to 40 ids at a time with a flush every 500 ms plus up to four
+    parallel requests per channel panel -- that is ~120-200 requests a minute.
+    The default must let such a burst through in full."""
     _reset()
-    assert api.RATE_LIMIT_PER_MINUTE >= 400, "дефолт слишком низкий для расширения"
+    assert api.RATE_LIMIT_PER_MINUTE >= 400, "the default is too low for the extension"
     codes = {client.get("/api/health").status_code for _ in range(250)}
     assert codes == {200}
 
@@ -43,8 +43,8 @@ def test_over_the_limit_gives_429_with_retry_after(monkeypatch):
 
 
 def test_limiter_does_not_count_frontend_static_files(monkeypatch):
-    """Одна загрузка дашборда стоит десятка файлов -- если считать и их,
-    бюджет выгорает на ровном месте."""
+    """One dashboard load costs a dozen files -- if those were counted too,
+    the budget would burn out for nothing."""
     _reset()
     monkeypatch.setattr(api, "RATE_LIMIT_PER_MINUTE", 2)
     for _ in range(10):
@@ -62,8 +62,8 @@ def test_zero_disables_the_limiter(monkeypatch):
 
 
 def test_429_still_carries_cors_headers(monkeypatch):
-    """Лимитер объявлен выше CORSMiddleware намеренно: иначе расширение
-    увидит непрозрачную ошибку CORS вместо честного 429."""
+    """The limiter is declared above CORSMiddleware on purpose: otherwise the extension
+    would see an opaque CORS error instead of an honest 429."""
     _reset()
     monkeypatch.setattr(api, "RATE_LIMIT_PER_MINUTE", 1)
     origin = {"Origin": "chrome-extension://abcdef"}

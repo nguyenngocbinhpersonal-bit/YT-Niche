@@ -9,7 +9,7 @@ Two things this computes that generic word-clouds do not:
 
   momentum  share of the phrase this period / share last period
             -- catches phrases that are rising even while still rare, which is
-            the whole point of "trending keywords за 24 часа".
+            the whole point of "trending keywords over 24 hours".
 
 YouTube's API has no search-volume field and never has; anything claiming one is
 either scraping autocomplete or reselling Google Trends. So we score by what we

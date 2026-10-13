@@ -1,4 +1,4 @@
-"""SEO-помощник по метаданным (plan item 8.8) -- orchestrates domain/metadata.py
+"""Metadata SEO helper (plan item 8.8) -- orchestrates domain/metadata.py
 against the user's own corpus, and keeps a history of drafts so a later
 publish can be linked back for a real outcome check.
 
@@ -130,7 +130,7 @@ def review_metadata(title: str, description: str = "", tags=None, niche: str = N
 
     signals = [
         MD.length_signal("title_length", len(title or ""),
-                         [len(r["title"] or "") for r in outlier_rows], "длина заголовка"),
+                         [len(r["title"] or "") for r in outlier_rows], "title length"),
         MD.visible_prefix_signal(title, key_phrase=key_phrase),
         MD.description_signal(description, key_phrase=key_phrase),
     ]
@@ -147,10 +147,10 @@ def review_metadata(title: str, description: str = "", tags=None, niche: str = N
         signals.append({
             "id": f"structure_{feat['feature']}",
             "verdict": "ok" if present == wants_it else "warn",
-            "explanation": (f"{feat['label']}: lift ×{feat['lift']} у выбросов "
-                            f"(выборка {feat['sample']}); в черновике "
-                            f"{'есть' if present else 'нет'}, "
-                            f"{'и это соответствует паттерну' if present == wants_it else 'а паттерн ниши другой'}"),  # noqa: E501
+            "explanation": (f"{feat['label']}: lift ×{feat['lift']} among outliers "
+                            f"(sample {feat['sample']}); in the draft it is "
+                            f"{'present' if present else 'absent'}, "
+                            f"{'which matches the pattern' if present == wants_it else 'while the niche pattern is different'}"),  # noqa: E501
         })
 
     trending_phrases = []

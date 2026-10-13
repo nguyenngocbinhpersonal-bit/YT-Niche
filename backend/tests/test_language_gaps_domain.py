@@ -81,6 +81,6 @@ def test_cards_sort_open_then_thin_then_covered_strongest_demand_first():
 
 
 def test_a_thin_corpus_gets_a_hint_and_a_big_one_does_not():
-    assert "12" in L.corpus_hint(12, "ru") and "русском языке" in L.corpus_hint(12, "ru")
+    assert "12" in L.corpus_hint(12, "ru") and "Russian" in L.corpus_hint(12, "ru")
     assert L.corpus_hint(L.THIN_CORPUS_VIDEOS, "ru") is None
-    assert "«xx»" not in L.corpus_hint(3, "pt") and "«qq»" in L.corpus_hint(3, "qq")
+    assert "“xx”" not in L.corpus_hint(3, "pt") and "“qq”" in L.corpus_hint(3, "qq")

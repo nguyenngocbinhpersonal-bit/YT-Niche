@@ -24,16 +24,16 @@ MAX_MATCHES = 3
 # linguistic content, mul = several languages
 _NO_LANGUAGE = {"und", "zxx", "mul", "un", "zx", "mu", "zz", "xx"}
 
-# the words after "на": the codes we meet most
+# the language names for the codes we meet most
 _NAMES = {
-    "en": "английском языке", "ru": "русском языке", "uz": "узбекском языке",
-    "es": "испанском языке", "hi": "хинди", "tr": "турецком языке", "ko": "корейском языке",
-    "ar": "арабском языке", "pt": "португальском языке", "de": "немецком языке",
-    "fr": "французском языке", "ja": "японском языке", "id": "индонезийском языке",
-    "it": "итальянском языке", "pl": "польском языке", "uk": "украинском языке",
-    "kk": "казахском языке", "vi": "вьетнамском языке", "th": "тайском языке",
-    "zh": "китайском языке", "fa": "персидском языке", "bn": "бенгальском языке",
-    "ur": "урду",
+    "en": "English", "ru": "Russian", "uz": "Uzbek",
+    "es": "Spanish", "hi": "Hindi", "tr": "Turkish", "ko": "Korean",
+    "ar": "Arabic", "pt": "Portuguese", "de": "German",
+    "fr": "French", "ja": "Japanese", "id": "Indonesian",
+    "it": "Italian", "pl": "Polish", "uk": "Ukrainian",
+    "kk": "Kazakh", "vi": "Vietnamese", "th": "Thai",
+    "zh": "Chinese", "fa": "Persian", "bn": "Bengali",
+    "ur": "Urdu",
 }
 
 _RANK = {"open": 0, "thin": 1, "covered": 2}
@@ -50,8 +50,8 @@ def normalize_lang(code) -> str | None:
 
 
 def lang_label(code: str) -> str:
-    """The words after "на" for a normalized code: 'русском языке'."""
-    return _NAMES.get(code) or f"языке «{code}»"
+    """The language name for a normalized code: 'Russian'."""
+    return _NAMES.get(code) or f"language “{code}”"
 
 
 def verdict(neighbours, hit_score: float = HIT_SCORE, min_similarity: float = MIN_SIMILARITY) -> dict:
@@ -92,5 +92,5 @@ def corpus_hint(videos: int, lang: str) -> str | None:
     """Words for a thin target corpus; None when it is big enough."""
     if videos >= THIN_CORPUS_VIDEOS:
         return None
-    return (f"В базе только {videos} видео на {lang_label(lang)}: «открыто» может значить "
-            "«не собрано». Соберите каналы этой ниши на этом языке и проверьте снова.")
+    return (f"The database has only {videos} videos in {lang_label(lang)}: \"open\" may mean "
+            "\"not collected\". Collect this niche's channels in that language and check again.")

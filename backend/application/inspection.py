@@ -1,20 +1,20 @@
-"""Разбор одного произвольного видео или канала — то, что показывает браузерное
-расширение поверх страниц YouTube.
+"""Inspection of one arbitrary video or channel — what the browser
+extension shows on top of YouTube pages.
 
-Отличие от остальных сценариев приложения: сюда приходит запрос на ролик,
-которого в базе может не быть вовсе — пользователь просто открыл случайное
-видео. Порядок работы поэтому такой:
+Unlike the other application scenarios, a request arrives here for a video
+that may not be in the database at all — the user just opened a random
+video. So the order of work is:
 
-  1. читаем локальный Postgres — бесплатно и мгновенно;
-  2. если записи нет или она протухла — добираем ровно один `videos.list`
-     (1 unit квоты) и, при необходимости, один `channels.list` (ещё 1 unit);
-  3. сохраняем добранное теми же функциями, что и сборщик, поэтому обычный
-     просмотр YouTube попутно наполняет базу и историю снапшотов.
+  1. read the local Postgres — free and instant;
+  2. if there is no record or it is stale — fetch exactly one `videos.list`
+     (1 unit of quota) and, if needed, one `channels.list` (another 1 unit);
+  3. save what was fetched with the same functions as the collector, so ordinary
+     YouTube browsing fills the database and the snapshot history along the way.
 
-Цена вопроса: 1-2 unit на страницу против 100 unit у `search.list`, так что
-дневные 10 000 units при обычном сёрфинге не тратятся заметно. Всё, что
-дороже одного units-запроса (обход uploads-плейлиста канала), сюда НЕ
-попадает — это остаётся явной кнопкой «собрать канал» в расширении.
+The price: 1-2 units per page against 100 units for `search.list`, so
+the daily 10,000 units are not noticeably spent by ordinary browsing. Anything that
+costs more than one units request (walking a channel's uploads playlist) does NOT
+come here — that stays an explicit "collect channel" button in the extension.
 """
 import json
 from datetime import datetime, timezone
@@ -29,15 +29,15 @@ from domain import metrics as M
 from domain import periods as P
 from domain.users import LOCAL_USER_ID
 
-# Насколько свежей считаем запись в базе. Видео меняет счётчики быстро,
-# канал — заметно медленнее, поэтому пороги разные.
+# How fresh we consider a database record. A video changes counters quickly,
+# a channel noticeably more slowly, so the thresholds differ.
 VIDEO_STALE_HOURS = 6.0
 CHANNEL_STALE_HOURS = 24.0
 BATCH_STALE_HOURS = 24.0
 MAX_BATCH_IDS = 100
 
 
-# ------------------------------------------------------------------ утилиты
+# ------------------------------------------------------------------ utilities
 
 def _dt(iso):
     if not iso:
@@ -101,10 +101,10 @@ def _stored_videos(conn, channel_id) -> dict:
 
 
 def _prior_views(conn, channel_id, published_at, is_short, n=M.DEFAULT_BASELINE_N):
-    """Просмотры предыдущих загрузок того же канала и того же формата.
+    """Views of the previous uploads of the same channel and the same format.
 
-    Формат учитываем намеренно: сравнивать Shorts со стандартными роликами —
-    это гарантированно раздутый или заниженный outlier.
+    We take the format into account on purpose: comparing Shorts with standard videos is
+    a guaranteed inflated or deflated outlier.
     """
     if not channel_id or not published_at:
         return []
@@ -150,7 +150,7 @@ def _history_map(conn, video_ids, limit_per_video=100):
 
 def _ensure_channel(conn, api_key, channel_id, fetch=True, refresh=False,
                     stale_hours=CHANNEL_STALE_HOURS):
-    """Возвращает (row, потрачено_units, дозагружали_ли)."""
+    """Returns (row, units_spent, was_fetched)."""
     ch = _channel_row(conn, channel_id)
     need = refresh or ch is None or _stale(ch.get("updated_at"), stale_hours)
     if need and fetch and api_key and channel_id:
@@ -163,7 +163,7 @@ def _ensure_channel(conn, api_key, channel_id, fetch=True, refresh=False,
     return ch, 0, False
 
 
-# ------------------------------------------------------------------- видео
+# ------------------------------------------------------------------- video
 
 def inspect_video(api_key: str, video_id: str, refresh: bool = False,
                   fetch: bool = True, stale_hours: float = VIDEO_STALE_HOURS,
@@ -185,11 +185,11 @@ def inspect_video(api_key: str, video_id: str, refresh: bool = False,
                     fetched = True
 
         if not v:
-            hint = "видео нет в локальной базе"
+            hint = "the video is not in the local database"
             if not api_key:
-                hint += ", а YOUTUBE_API_KEY не задан — дозагрузить неоткуда"
+                hint += ", and YOUTUBE_API_KEY is not set — nothing to fetch it from"
             elif not fetch:
-                hint += " (дозагрузка выключена в настройках расширения)"
+                hint += " (fetching is turned off in the extension settings)"
             return {"videoId": video_id, "found": False, "quotaUnits": quota, "hint": hint}
 
         channel_id = v.get("channel_id")
@@ -205,8 +205,8 @@ def inspect_video(api_key: str, video_id: str, refresh: bool = False,
         age_days = P.days_since(published) if published else None
         short = bool(v.get("is_short"))
 
-        # --- базы сравнения: пожизненное среднее канала (как у NexLev) и
-        #     медиана последних загрузок (наш дефолт — устойчив к вирусам)
+        # --- comparison baselines: the channel's lifetime mean (as at NexLev) and
+        #     the median of the latest uploads (our default — robust to virals)
         avg_views = M.avg_channel_views(ch.get("view_count") or 0, ch.get("video_count") or 0)
         score_mean = M.outlier_score(views, ch.get("view_count") or 0,
                                      ch.get("video_count") or 0) if avg_views else None
@@ -220,7 +220,7 @@ def inspect_video(api_key: str, video_id: str, refresh: bool = False,
         elif avg_views and age_days is not None:
             age_adjusted = M.age_adjusted_outlier(views, avg_views, age_days)
 
-        # --- скорость по нашим же снапшотам
+        # --- speed from our own snapshots
         history = _history(conn, video_id)
         vph24 = M.vph_from_history(history, 24.0)
         vph7d = M.vph_from_history(history, 24.0 * 7)
@@ -303,10 +303,10 @@ def inspect_video(api_key: str, video_id: str, refresh: bool = False,
         conn.close()
 
 
-# ------------------------------------------------------------------ канал
+# ------------------------------------------------------------------ channel
 
 def _resolve_locally(conn, ref: str):
-    """Пробуем узнать канал, не тратя квоту: по UC-id или по @хэндлу из базы."""
+    """Try to identify the channel without spending quota: by UC-id or by an @handle from the database."""
     ref = (ref or "").strip()
     if not ref:
         return None
@@ -324,7 +324,7 @@ def _resolve_locally(conn, ref: str):
 
 def inspect_channel(api_key: str, ref: str, refresh: bool = False, fetch: bool = True,
                     stale_hours: float = CHANNEL_STALE_HOURS, user_id: int = LOCAL_USER_ID) -> dict:
-    """`ref` — UC-id, @хэндл или ссылка на канал."""
+    """`ref` — a UC-id, an @handle or a channel link."""
     conn = db.get_conn()
     try:
         quota = 0
@@ -341,11 +341,11 @@ def inspect_channel(api_key: str, ref: str, refresh: bool = False, fetch: bool =
                 fetched = True
 
         if not ch:
-            hint = "канала нет в локальной базе"
+            hint = "the channel is not in the local database"
             if not api_key:
-                hint += ", а YOUTUBE_API_KEY не задан — дозагрузить неоткуда"
+                hint += ", and YOUTUBE_API_KEY is not set — nothing to fetch it from"
             elif not fetch:
-                hint += " (дозагрузка выключена в настройках расширения)"
+                hint += " (fetching is turned off in the extension settings)"
             return {"ref": ref, "found": False, "quotaUnits": quota, "hint": hint}
 
         channel_id = ch["channel_id"]
@@ -354,7 +354,7 @@ def inspect_channel(api_key: str, ref: str, refresh: bool = False, fetch: bool =
         age_days = ((datetime.now(timezone.utc) - created).total_seconds() / 86400) if created else None
         avg_views = M.avg_channel_views(ch.get("view_count") or 0, ch.get("video_count") or 0)
 
-        # рост по нашим снапшотам канала
+        # growth from our channel snapshots
         rows = conn.execute(
             "SELECT captured_at, subscriber_count, view_count FROM channel_stats_history "
             "WHERE channel_id = ? ORDER BY captured_at ASC", (channel_id,)).fetchall()
@@ -416,22 +416,22 @@ def inspect_channel(api_key: str, ref: str, refresh: bool = False, fetch: bool =
             "stored": stored,
             "tracked": _is_tracked(conn, channel_id, user_id),
             "snapshots": len(snaps),
-            # ниже этого порога график выбросов и «лучшее время» бессмысленны
+            # below this threshold the outlier chart and the "best time" are meaningless
             "hasDeepAnalytics": stored["count"] >= 5,
         }
     finally:
         conn.close()
 
 
-# ------------------------------------------- пачка видео (бейджи в выдаче)
+# ------------------------------------------- a batch of videos (badges in the results)
 
 def inspect_videos(api_key: str, video_ids, fetch: bool = True,
                    stale_hours: float = BATCH_STALE_HOURS) -> dict:
-    """Короткая сводка по списку id — для значков на карточках видео.
+    """A short summary for a list of ids — for the badges on video cards.
 
-    Стоимость: 1 unit на каждые 50 неизвестных роликов плюс 1 unit на каждые
-    50 неизвестных каналов. Поэтому значки на странице поиска обходятся в
-    2-3 units, а не в сотню.
+    Cost: 1 unit per 50 unknown videos plus 1 unit per
+    50 unknown channels. So badges on a search page cost
+    2-3 units, not a hundred.
     """
     ids = [i.strip() for i in (video_ids or []) if i and i.strip()][:MAX_BATCH_IDS]
     if not ids:

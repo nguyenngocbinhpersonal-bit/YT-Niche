@@ -43,19 +43,19 @@ def _when(v, test):
 
 # (key, label, kind, extractor over a video dict)
 FEATURES = [
-    ("number", "Число в заголовке", "share", lambda v: bool(_DIGIT.search(v["title"]))),
-    ("question", "Вопрос в заголовке", "share", lambda v: "?" in v["title"]),
-    ("brackets", "Скобки в заголовке", "share", lambda v: bool(_BRACKET.search(v["title"]))),
-    ("caps", "Слово ЗАГЛАВНЫМИ", "share", lambda v: bool(_CAPS_WORD.search(v["title"]))),
-    ("emoji", "Эмодзи в заголовке", "share", lambda v: bool(_EMOJI.search(v["title"]))),
-    ("weekend", "Публикация в выходные", "share", lambda v: _when(v, lambda d: d.weekday() >= 5)),
-    ("night", "Публикация 00–05 UTC", "share", lambda v: _when(v, lambda d: d.hour < 6)),
-    ("morning", "Публикация 06–11 UTC", "share", lambda v: _when(v, lambda d: 6 <= d.hour < 12)),
-    ("afternoon", "Публикация 12–17 UTC", "share", lambda v: _when(v, lambda d: 12 <= d.hour < 18)),
-    ("evening", "Публикация 18–23 UTC", "share", lambda v: _when(v, lambda d: d.hour >= 18)),
-    ("duration", "Длина видео, секунды", "median", lambda v: v["duration"]),
-    ("titleLength", "Длина заголовка, символы", "median", lambda v: len(v["title"])),
-    ("tags", "Число тегов", "median", lambda v: v["tags"]),
+    ("number", "A number in the title", "share", lambda v: bool(_DIGIT.search(v["title"]))),
+    ("question", "A question in the title", "share", lambda v: "?" in v["title"]),
+    ("brackets", "Brackets in the title", "share", lambda v: bool(_BRACKET.search(v["title"]))),
+    ("caps", "An ALL-CAPS word", "share", lambda v: bool(_CAPS_WORD.search(v["title"]))),
+    ("emoji", "An emoji in the title", "share", lambda v: bool(_EMOJI.search(v["title"]))),
+    ("weekend", "Published on a weekend", "share", lambda v: _when(v, lambda d: d.weekday() >= 5)),
+    ("night", "Published 00–05 UTC", "share", lambda v: _when(v, lambda d: d.hour < 6)),
+    ("morning", "Published 06–11 UTC", "share", lambda v: _when(v, lambda d: 6 <= d.hour < 12)),
+    ("afternoon", "Published 12–17 UTC", "share", lambda v: _when(v, lambda d: 12 <= d.hour < 18)),
+    ("evening", "Published 18–23 UTC", "share", lambda v: _when(v, lambda d: d.hour >= 18)),
+    ("duration", "Video length, seconds", "median", lambda v: v["duration"]),
+    ("titleLength", "Title length, characters", "median", lambda v: len(v["title"])),
+    ("tags", "Number of tags", "median", lambda v: v["tags"]),
 ]
 
 

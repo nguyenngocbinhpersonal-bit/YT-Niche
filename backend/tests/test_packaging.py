@@ -12,8 +12,8 @@ from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-# Выставляет NICHE_DB_SCHEMA (своя одноразовая схема на процесс) и вешает её
-# удаление на atexit -- импорт нужен именно ради этого побочного эффекта.
+# Sets NICHE_DB_SCHEMA (a throwaway schema of its own per process) and hooks its
+# removal on atexit -- the import is needed precisely for this side effect.
 import schema_scope  # noqa: F401,E402
 
 from PIL import Image, ImageDraw  # noqa: E402

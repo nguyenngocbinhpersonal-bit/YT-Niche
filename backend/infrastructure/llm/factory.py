@@ -58,7 +58,7 @@ def display_model() -> str:
     """Human-readable model description for db_stats/doctor -- default_model()
     itself stays None so the provider keeps choosing freely."""
     if os.environ.get("LLM_PROVIDER", "none").strip().lower() == "ollama":
-        return os.environ.get("OLLAMA_MODEL", "").strip() or "(OLLAMA_MODEL не задан)"
+        return os.environ.get("OLLAMA_MODEL", "").strip() or "(OLLAMA_MODEL is not set)"
     pinned = default_model()
     if pinned:
         return pinned

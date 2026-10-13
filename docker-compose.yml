@@ -10,7 +10,7 @@
 # The API key is only needed at runtime, not to build: `docker compose build`
 # works with an empty .env. The worker exits with a clear message if the key is
 # missing, and the MCP tools that spend quota say so when you call them.
-#   docker compose up -d postgres web worker   # база + дашборд на http://localhost:8080 + сборщик
+#   docker compose up -d postgres web worker   # database + dashboard at http://localhost:8080 + collector
 #   docker compose logs -f worker
 #   docker compose run --rm mcp        # MCP server on stdio, for manual testing
 #   docker compose --profile http up -d mcp-http mcp-https   # MCP over HTTPS on :8765 (/mcp)
@@ -94,9 +94,9 @@ services:
     <<: *common
     container_name: niche-finder-worker
     command: ["python", "worker.py"]
-    # Код монтируется из папки, а не берётся из образа: образ нужен только
-    # ради Python и зависимостей, поэтому правка в backend/ применяется
-    # обычным `docker compose restart worker`, без пересборки.
+    # The code is mounted from the folder rather than taken from the image: the image is needed only
+    # for Python and dependencies, so an edit in backend/ is applied
+    # by a plain `docker compose restart worker`, without a rebuild.
     volumes:
       - models:/models
       - ./backend:/app:ro
@@ -127,25 +127,25 @@ services:
       WORKER_QUERY_PERIOD: "${WORKER_QUERY_PERIOD:-24h}"
       WORKER_QUERY_PAGES: "${WORKER_QUERY_PAGES:-1}"
 
-  # Дашборд: FastAPI отдаёт /api/* и статику из ./frontend.
-  # Слушает только 127.0.0.1 -- внутри контейнера лежит ваш ключ YouTube,
-  # выставлять его в локальную сеть незачем.
+  # Dashboard: FastAPI serves /api/* and the static files from ./frontend.
+  # Listens only on 127.0.0.1 -- your YouTube key is inside the container,
+  # there is no reason to expose it to the local network.
   web:
     <<: *common
     container_name: niche-finder-web
-    # Самолечение: если образ собран без fastapi/uvicorn (например, Docker Hub
-    # был недоступен и пересобрать не вышло), ставим их при старте с pypi —
-    # это другой хост, он обычно доступен, даже когда registry отвалился.
-    # На нормально собранном образе проверка занимает миллисекунды.
+    # Self-healing: if the image was built without fastapi/uvicorn (for example, Docker Hub
+    # was unavailable and the rebuild failed), we install them at startup from pypi —
+    # that is a different host, it is usually reachable even when the registry is down.
+    # On a properly built image the check takes milliseconds.
     command:
       - sh
       - -c
       - |
         python -c 'import fastapi, uvicorn' 2>/dev/null || {
-          echo 'fastapi/uvicorn нет в образе — ставлю с pypi (разово, ~30 сек)';
+          echo 'fastapi/uvicorn are not in the image — installing from pypi (one time, ~30 s)';
           pip install --quiet --user --no-warn-script-location \
             'fastapi>=0.115' 'uvicorn[standard]>=0.30' || {
-              echo 'Не удалось поставить зависимости. Нужен доступ к pypi.org'; exit 1; };
+              echo 'Could not install the dependencies. Access to pypi.org is required'; exit 1; };
         }
         exec python -m uvicorn api:app --host 0.0.0.0 --port 8080
     environment:
@@ -176,9 +176,9 @@ services:
     tty: false
     restart: "no"
     command: ["python", "server.py"]
-    # Как и остальные сервисы, запускает код прямо из ./backend — образ нужен
-    # только ради Python и зависимостей. Пересборка требуется лишь тогда,
-    # когда меняется requirements.txt.
+    # Like the other services, it runs the code straight from ./backend — the image is needed
+    # only for Python and dependencies. A rebuild is required only when
+    # requirements.txt changes.
     volumes:
       - models:/models
       - ./backend:/app:ro

@@ -21,21 +21,21 @@ def test_percentiles_empty_is_none():
 
 
 def test_length_signal_unreliable_under_min_sample():
-    sig = MD.length_signal("title_length", 60, [40, 50, 60], "длина заголовка")
+    sig = MD.length_signal("title_length", 60, [40, 50, 60], "title length")
     assert sig["verdict"] == "unreliable"
     assert sig["value"] == 60
 
 
 def test_length_signal_ok_inside_band():
     baseline = list(range(30, 30 + 40))  # 40 samples, p25-p75 comfortably covers 50
-    sig = MD.length_signal("title_length", 50, baseline, "длина заголовка")
+    sig = MD.length_signal("title_length", 50, baseline, "title length")
     assert sig["verdict"] == "ok", sig
     assert sig["baseline"]["sample"] == 40
 
 
 def test_length_signal_warn_outside_band():
     baseline = list(range(30, 30 + 40))
-    sig = MD.length_signal("title_length", 200, baseline, "длина заголовка")
+    sig = MD.length_signal("title_length", 200, baseline, "title length")
     assert sig["verdict"] == "warn", sig
 
 
@@ -123,7 +123,7 @@ def _run_all():
             print(f"FAIL  {name}: {e}")
         except Exception as e:  # pragma: no cover
             print(f"ERROR {name}: {e!r}")
-    print(f"\n{passed}/{len(tests)} прошло")
+    print(f"\n{passed}/{len(tests)} passed")
     return passed == len(tests)
 
 

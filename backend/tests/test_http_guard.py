@@ -1,14 +1,14 @@
-"""Защита локального HTTP API от чужих сайтов в браузере (interfaces/http/api.py).
+"""Protection of the local HTTP API from foreign sites in the browser (interfaces/http/api.py).
 
-Две проверки, обе в одном middleware:
-  * Host -- только 127.0.0.1 / localhost / [::1] / имя docker-сервиса плюс
-    NF_ALLOWED_HOSTS; иначе 400 (DNS rebinding);
-  * изменяющие методы (POST/PUT/PATCH/DELETE) -- только с Content-Type JSON или
-    с заголовком X-NF-Client; иначе 403 (простой cross-origin POST без preflight).
+Two checks, both in one middleware:
+  * Host -- only 127.0.0.1 / localhost / [::1] / the docker service name plus
+    NF_ALLOWED_HOSTS; otherwise 400 (DNS rebinding);
+  * mutating methods (POST/PUT/PATCH/DELETE) -- only with a JSON Content-Type or
+    with an X-NF-Client header; otherwise 403 (a simple cross-origin POST without preflight).
 
-Прикладные функции заменены заглушками: ни сети, ни квоты, ни LLM.
-Тот же одноразовый-схемный сетап, что и в test_http_api.py.
-Запуск через pytest или напрямую: python3 tests/test_http_guard.py
+Application functions are replaced with stubs: no network, no quota, no LLM.
+The same throwaway-schema setup as in test_http_api.py.
+Run via pytest or directly: python3 tests/test_http_guard.py
 """
 import os
 import sys
@@ -23,7 +23,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 import infrastructure.postgres as db  # noqa: E402
 import interfaces.http.api as api  # noqa: E402
 
-# Без заголовков по умолчанию: каждый тест сам решает, что шлёт клиент.
+# No headers by default: each test decides for itself what the client sends.
 client = TestClient(api.app)
 
 
@@ -46,8 +46,8 @@ class _Stub:
         return {"stub": True}
 
 
-# Пять POST-маршрутов, которые берут параметры только из query: у них нет тела,
-# поэтому строгая проверка content-type в FastAPI их не прикрывает.
+# Five POST routes that take parameters only from the query: they have no body,
+# so FastAPI's strict content-type check does not cover them.
 QUERY_ONLY_POSTS = [
     ("/api/enrich/channels?limit=5", "EN", "classify_channels"),
     ("/api/enrich/videos", "EN", "tag_new_videos"),
@@ -67,7 +67,7 @@ def stub(monkeypatch):
     return make
 
 
-# ------------------------------------------------ изменяющие методы
+# ------------------------------------------------ mutating methods
 
 @pytest.mark.parametrize("url,alias,func", QUERY_ONLY_POSTS, ids=IDS)
 def test_query_only_post_without_headers_is_403(stub, url, alias, func):
@@ -114,7 +114,7 @@ def test_json_content_type_variants_pass(stub, ctype):
     {"X-NF-Client": "   "},
 ])
 def test_simple_request_shapes_are_refused(stub, headers):
-    """Всё, что браузер отправит cross-origin без preflight, -- 403."""
+    """Everything the browser sends cross-origin without a preflight is 403."""
     s = stub("AL", "scan")
     assert client.post("/api/events/scan", headers=headers).status_code == 403
     assert s.calls == 0
@@ -154,7 +154,7 @@ def test_preflight_from_a_foreign_site_is_not_allowed():
 
 
 def test_403_still_carries_cors_headers_for_the_extension(stub):
-    """Иначе расширение увидит непрозрачную ошибку CORS вместо понятного 403."""
+    """Otherwise the extension would see an opaque CORS error instead of a clear 403."""
     stub("AL", "scan")
     resp = client.post("/api/events/scan", headers={"Origin": "chrome-extension://abc"})
     assert resp.status_code == 403

@@ -31,7 +31,7 @@ def test_youtube_data_and_estimates_are_both_there():
 
 
 def test_thresholds_come_from_the_code():
-    assert f"{M.DEFAULT_BASELINE_N} предыдущих" in C.CATALOG["outlierScore"]["formula"]
+    assert f"{M.DEFAULT_BASELINE_N} uploads" in C.CATALOG["outlierScore"]["formula"]
     assert f"×{M.MONETISATION_DISCOUNT}" in C.CATALOG["revenueRange"]["formula"].replace("× ", "×")
 
 
